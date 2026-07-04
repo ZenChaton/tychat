@@ -1,0 +1,181 @@
+/* ============================================================
+   STYLE DE BASE  —  couleurs, polices, fond, boutons
+   Palette "arcade rouge sombre" : changez les variables ici
+   et tout le jeu suit.
+   ============================================================ */
+
+:root {
+  --fond-haut: #5C1218;   /* rouge sombre (haut du dégradé) */
+  --fond-bas:  #2B080B;   /* presque noir rougeâtre (bas) */
+  --sombre:    #3A0E13;   /* panneaux / ombres portées */
+  --sombre-2:  #5A1B22;   /* boutons */
+  --jaune:     #FFD166;   /* accent soleil */
+  --corail:    #EF6461;   /* accent rouge/rose */
+  --menthe:    #43BCCD;   /* accent turquoise */
+  --creme:     #FDF6E3;   /* texte clair */
+  --ombre:     rgba(15, 3, 5, 0.5);
+
+  --r-grand: 24px;
+  --r-moyen: 16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: "Nunito", system-ui, sans-serif;
+  color: var(--creme);
+  background: var(--fond-bas);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Fond : dégradé rouge sombre + canvas des manettes ---- */
+#fond-blocs {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, var(--fond-haut) 0%, var(--fond-bas) 100%);
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  width: 100%;
+}
+
+.ecran {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.ecran.actif { display: flex; opacity: 1; }
+
+/* ---- Titre du jeu : TyCha en Luckiest Guy ---- */
+.titre-jeu {
+  font-family: "Luckiest Guy", "Fredoka", sans-serif;
+  font-weight: 400;
+  font-size: clamp(64px, 12vw, 140px);
+  line-height: 0.95;
+  color: var(--creme);
+  text-align: center;
+  letter-spacing: 3px;
+  text-shadow: 0 7px 0 var(--fond-bas), 0 12px 26px var(--ombre);
+  transform: rotate(-2deg);
+}
+.titre-jeu .accent { color: var(--jaune); }
+
+.titre-ecran {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: clamp(28px, 5vw, 44px);
+  color: var(--creme);
+  text-shadow: 0 4px 0 var(--fond-bas);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.sous-titre {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 500;
+  font-size: clamp(16px, 2.4vw, 22px);
+  color: var(--creme);
+  opacity: 0.9;
+  margin-top: 12px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+/* ============================================================
+   BOUTONS
+   ============================================================ */
+.btn {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: clamp(18px, 2.6vw, 24px);
+  color: var(--creme);
+  background: var(--sombre-2);
+  border: none;
+  border-radius: var(--r-moyen);
+  padding: 16px 28px;
+  min-width: 240px;
+  cursor: pointer;
+  box-shadow: 0 6px 0 var(--fond-bas), 0 8px 18px var(--ombre);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+  user-select: none;
+}
+.btn:hover   { background: #742630; }
+.btn:active  { transform: translateY(5px); box-shadow: 0 1px 0 var(--fond-bas), 0 3px 8px var(--ombre); }
+.btn:focus-visible { outline: 4px solid var(--jaune); outline-offset: 3px; }
+
+.btn.principal {
+  background: var(--jaune);
+  color: var(--sombre);
+  box-shadow: 0 6px 0 #d9a520, 0 8px 20px var(--ombre);
+  min-width: 300px;
+  font-size: clamp(22px, 3.4vw, 30px);
+}
+.btn.principal:hover  { background: #ffd980; }
+.btn.principal:active { box-shadow: 0 1px 0 #d9a520, 0 3px 8px var(--ombre); }
+
+.btn.corail {
+  background: var(--corail);
+  box-shadow: 0 6px 0 #b83f3d, 0 8px 18px var(--ombre);
+}
+.btn.corail:hover  { background: #ff7a77; }
+.btn.corail:active { box-shadow: 0 1px 0 #b83f3d, 0 3px 8px var(--ombre); }
+
+.btn.petit {
+  min-width: auto;
+  padding: 10px 18px;
+  font-size: 16px;
+}
+
+.btn-retour {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  min-width: auto;
+  padding: 12px 20px;
+  font-size: 18px;
+  z-index: 5;
+}
+
+.colonne-boutons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  margin-top: 32px;
+}
+
+.ligne-boutons {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 28px;
+}
+.ligne-boutons.presets { margin-top: 14px; justify-content: flex-start; }
+
+.credit {
+  position: absolute;
+  bottom: 16px;
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+  color: var(--creme);
+  opacity: 0.7;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

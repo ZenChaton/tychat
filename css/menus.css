@@ -1,0 +1,362 @@
+/* ============================================================
+   STYLE DES MENUS  —  cartes, grilles, aperçu, réglages,
+   personnalisation, touches, inventaire
+   ============================================================ */
+
+/* ---- Panneau semi-transparent qui contient un menu ---- */
+.panneau {
+  background: rgba(43, 8, 11, 0.85);
+  border: 4px solid rgba(253, 246, 227, 0.22);
+  border-radius: var(--r-grand);
+  padding: 28px;
+  width: min(960px, 94vw);
+  max-height: 84vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px var(--ombre);
+  backdrop-filter: blur(4px);
+}
+
+/* ---- Grilles de cartes ---- */
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+.grille.mini {
+  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+  gap: 10px;
+}
+
+.carte {
+  background: var(--sombre-2);
+  border: 4px solid transparent;
+  border-radius: var(--r-moyen);
+  padding: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.1s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.carte:hover { transform: translateY(-4px); background: #742630; }
+.carte:focus-visible { outline: 4px solid var(--jaune); outline-offset: 2px; }
+.carte.choisie { border-color: var(--jaune); background: #742630; }
+.carte.mini { padding: 8px; border-width: 3px; }
+
+.pastille {
+  width: 100%;
+  height: 84px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  display: flex;
+  overflow: hidden;
+}
+.pastille.petite { height: 36px; margin-bottom: 6px; border-radius: 8px; }
+.pastille span { flex: 1; }
+
+.carte .nom {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 500;
+  font-size: 18px;
+  color: var(--creme);
+}
+.carte.mini .nom { font-size: 14px; }
+.carte .desc {
+  font-size: 13px;
+  color: var(--creme);
+  opacity: 0.75;
+  margin-top: 4px;
+}
+.carte .badge {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--corail);
+  color: var(--creme);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.carte.indispo { opacity: 0.55; cursor: not-allowed; }
+.carte.indispo:hover { transform: none; }
+
+/* ============================================================
+   Deux colonnes : aperçu 3D à gauche, options à droite
+   ============================================================ */
+.deux-colonnes {
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+}
+.colonne-apercu {
+  flex: 0 0 300px;
+  background: rgba(15, 3, 5, 0.45);
+  border-radius: var(--r-moyen);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+}
+.colonne-apercu canvas { width: 100%; height: 100%; display: block; }
+.colonne-cartes { flex: 1; min-width: 0; }
+
+@media (max-width: 720px) {
+  .deux-colonnes { flex-direction: column; }
+  .colonne-apercu { flex: 0 0 240px; min-height: 240px; position: static; width: 100%; }
+}
+
+/* ============================================================
+   PERSONNALISATION  —  sections, palettes de couleurs
+   ============================================================ */
+.section-perso { margin-bottom: 22px; }
+.titre-section {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--jaune);
+  margin-bottom: 10px;
+}
+.aide-section {
+  display: block;
+  font-family: "Nunito", sans-serif;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--creme);
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.rangee-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.swatch {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(253,246,227,0.35);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+.swatch:hover { transform: scale(1.12); }
+.swatch.choisie { border-color: var(--jaune); box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.4); }
+.swatch:focus-visible { outline: 3px solid var(--jaune); outline-offset: 2px; }
+
+.swatch-libre {
+  width: 44px; height: 34px;
+  border: 3px dashed rgba(253,246,227,0.5);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px;
+}
+
+/* ============================================================
+   RÉGLAGES  —  lignes label + contrôle
+   ============================================================ */
+.ligne-reglage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 4px;
+  border-bottom: 2px solid rgba(253, 246, 227, 0.12);
+}
+
+.ligne-reglage .label {
+  font-family: "Fredoka", sans-serif;
+  font-weight: 500;
+  font-size: 18px;
+}
+.ligne-reglage .aide {
+  display: block;
+  font-family: "Nunito", sans-serif;
+  font-weight: 400;
+  font-size: 13px;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+.ligne-reglage .controle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+input[type="range"] {
+  width: 200px;
+  accent-color: var(--jaune);
+  cursor: pointer;
+}
+.valeur {
+  font-family: "Fredoka", sans-serif;
+  min-width: 56px;
+  text-align: right;
+  font-size: 18px;
+  color: var(--jaune);
+}
+
+/* Interrupteur oui/non */
+.switch { position: relative; width: 60px; height: 32px; flex: 0 0 auto; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .piste {
+  position: absolute; inset: 0;
+  background: #1a0507; border-radius: 999px;
+  transition: background 0.15s ease; cursor: pointer;
+}
+.switch .piste::before {
+  content: ""; position: absolute;
+  width: 24px; height: 24px; left: 4px; top: 4px;
+  background: var(--creme); border-radius: 50%;
+  transition: transform 0.15s ease;
+}
+.switch input:checked + .piste { background: var(--menthe); }
+.switch input:checked + .piste::before { transform: translateX(28px); }
+.switch input:focus-visible + .piste { outline: 3px solid var(--jaune); outline-offset: 2px; }
+
+/* ============================================================
+   TOUCHES  —  cases cliquables pour changer les touches
+   ============================================================ */
+.grille-touches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.touche-case {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--sombre-2);
+  border: 3px solid transparent;
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: "Fredoka", sans-serif;
+  color: var(--creme);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.touche-case:hover { background: #742630; }
+.touche-case:focus-visible { outline: 3px solid var(--jaune); outline-offset: 2px; }
+.touche-case .action { font-size: 15px; font-weight: 500; text-align: left; }
+.touche-case kbd {
+  font-family: "Fredoka", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--fond-bas);
+  color: var(--jaune);
+  border: 2px solid rgba(255, 209, 102, 0.4);
+  border-radius: 8px;
+  padding: 4px 10px;
+  min-width: 44px;
+  text-align: center;
+}
+.touche-case.attente {
+  border-color: var(--menthe);
+  animation: clignote 0.8s ease-in-out infinite;
+}
+.touche-case.attente kbd { color: var(--menthe); border-color: var(--menthe); }
+@keyframes clignote { 50% { background: #35545c; } }
+
+/* ============================================================
+   EN JEU  —  canvas plein écran + interface
+   ============================================================ */
+#ecran-jeu { padding: 0; }
+#canvas-jeu { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.hud {
+  position: absolute;
+  top: 16px; left: 16px;
+  z-index: 5;
+  display: flex; gap: 10px;
+}
+
+/* ---- Barre d'inventaire : 6 cases en bas ---- */
+#barre-inventaire {
+  position: absolute;
+  bottom: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+}
+.case-inv {
+  position: relative;
+  width: 58px; height: 58px;
+  background: rgba(15, 3, 5, 0.65);
+  border: 3px solid rgba(253, 246, 227, 0.35);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+.case-inv:hover { transform: translateY(-3px); }
+.case-inv.active {
+  border-color: var(--jaune);
+  box-shadow: 0 0 12px rgba(255, 209, 102, 0.55);
+}
+.case-inv .icone { font-size: 28px; line-height: 1; }
+.case-inv .num {
+  position: absolute;
+  top: 2px; left: 5px;
+  font-family: "Fredoka", sans-serif;
+  font-size: 11px;
+  color: var(--creme);
+  opacity: 0.7;
+}
+
+/* ---- Aide contextuelle (ramasser) ---- */
+#astuce-contexte {
+  position: absolute;
+  bottom: 136px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: none;
+  background: rgba(255, 209, 102, 0.92);
+  color: var(--sombre);
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.astuce-jeu {
+  position: absolute;
+  bottom: 20px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  background: rgba(15, 3, 5, 0.6);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-family: "Fredoka", sans-serif;
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#chargement {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 18px;
+  background: var(--fond-bas);
+}
+#chargement .rond {
+  width: 54px; height: 54px;
+  border: 6px solid rgba(253,246,227,0.25);
+  border-top-color: var(--jaune);
+  border-radius: 50%;
+  animation: tourne 0.9s linear infinite;
+}
+@keyframes tourne { to { transform: rotate(360deg); } }

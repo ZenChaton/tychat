@@ -1,0 +1,2 @@
+Placez ici vos fichiers son (.mp3, .ogg, .wav).
+Exemple : saut.mp3, musique.mp3
