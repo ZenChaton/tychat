@@ -13,12 +13,15 @@ window.Inventaire = {
   onChangement: null,   // appelé quand la main doit changer
 
   charger() {
+    const connus = (window.GAME_DATA.armes || []).map(a => a.id);
     const sauve = window.Sauvegarde.lire("inventaire", null);
     if (sauve && Array.isArray(sauve.cases) && sauve.cases.length === this.TAILLE) {
-      this.cases = sauve.cases;
+      // on écarte les objets qui n'existent plus (ex : l'ancien bâton)
+      this.cases = sauve.cases.map(id => connus.includes(id) ? id : null);
       this.actif = Math.min(Math.max(sauve.actif || 0, 0), this.TAILLE - 1);
+      if (this.cases.every(c => c === null)) this.cases[0] = "epee";
     } else {
-      this.cases = ["baton", null, null, null, null, null];
+      this.cases = ["epee", null, null, null, null, null];
       this.actif = 0;
     }
   },

@@ -17,21 +17,23 @@ window.Reglages = {
       gauche:   "KeyQ",
       droite:   "KeyD",
       sauter:   "Space",
-      ramasser: "KeyE"
+      ramasser: "KeyE",
+      vehicule: "KeyF"
     }
   },
 
   // Préréglages rapides proposés dans le menu
   PRESETS: {
-    zqsd:    { avant: "KeyZ", arriere: "KeyS", gauche: "KeyQ", droite: "KeyD", sauter: "Space", ramasser: "KeyE" },
-    wasd:    { avant: "KeyW", arriere: "KeyS", gauche: "KeyA", droite: "KeyD", sauter: "Space", ramasser: "KeyE" },
-    fleches: { avant: "ArrowUp", arriere: "ArrowDown", gauche: "ArrowLeft", droite: "ArrowRight", sauter: "Space", ramasser: "KeyE" }
+    zqsd:    { avant: "KeyZ", arriere: "KeyS", gauche: "KeyQ", droite: "KeyD", sauter: "Space", ramasser: "KeyE", vehicule: "KeyF" },
+    wasd:    { avant: "KeyW", arriere: "KeyS", gauche: "KeyA", droite: "KeyD", sauter: "Space", ramasser: "KeyE", vehicule: "KeyF" },
+    fleches: { avant: "ArrowUp", arriere: "ArrowDown", gauche: "ArrowLeft", droite: "ArrowRight", sauter: "Space", ramasser: "KeyE", vehicule: "KeyF" }
   },
 
   // Noms lisibles des actions (pour le menu)
   NOMS_ACTIONS: {
     avant: "Avancer", arriere: "Reculer", gauche: "Aller à gauche",
-    droite: "Aller à droite", sauter: "Sauter", ramasser: "Ramasser"
+    droite: "Aller à droite", sauter: "Sauter", ramasser: "Ramasser",
+    vehicule: "Véhicule (monter/descendre)"
   },
 
   actuel: null,

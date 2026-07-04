@@ -9,7 +9,7 @@
   const D = window.GAME_DATA;
   const $ = (sel) => document.querySelector(sel);
 
-  let perso = null;          // configuration complète du personnage
+  let choixPersonnage = null;   // entrée de D.personnages
   let choixCompagnon = null;
 
   // ============================================================
@@ -27,17 +27,9 @@
     window.Reglages.charger();
     window.Inventaire.charger();
 
-    // ---- Personnage sauvegardé (ou valeurs de départ) ----
-    const persoDefaut = {
-      peau: "#F2C79B",
-      tenue: "classique",
-      cheveux: { style: "court", couleur: "#5B3A1E" },
-      chapeau: "aucun", lunettes: "aucun", cape: "aucun",
-      chaussures: "aucun",
-      sac: "aucun", bijou: "aucun", tatouage: "aucun"
-    };
-    perso = Object.assign({}, persoDefaut, window.Sauvegarde.lire("perso", {}));
-    perso.cheveux = Object.assign({}, persoDefaut.cheveux, perso.cheveux || {});
+    // ---- Personnage sauvegardé (ou le premier de la liste) ----
+    const idPerso = window.Sauvegarde.lire("personnage", D.personnages[0].id);
+    choixPersonnage = D.personnages.find(p => p.id === idPerso) || D.personnages[0];
 
     const idComp = window.Sauvegarde.lire("compagnon", D.companions[0].id);
     choixCompagnon = D.companions.find(c => c.id === idComp) || D.companions[0];
@@ -45,7 +37,7 @@
     fondAnime();
     brancherMenuPrincipal();
     remplirServeurs();
-    construireMenuPersonnage();
+    remplirPersonnages();
     remplirCompagnons();
     brancherReglages();
     construireMenuTouches();
@@ -54,30 +46,13 @@
     montrerEcran("ecran-titre");
   }
 
-  // La config du personnage -> config pour construireAvatar()
-  function configAvatar() {
-    const tenue = D.tenues.find(t => t.id === perso.tenue) || D.tenues[0];
-    return {
-      peau: perso.peau,
-      haut: tenue.haut, bas: tenue.bas,
-      cheveux: perso.cheveux,
-      chapeau: perso.chapeau, lunettes: perso.lunettes, cape: perso.cape,
-      chaussures: perso.chaussures,
-      sac: perso.sac, bijou: perso.bijou, tatouage: perso.tatouage
-    };
-  }
-
-  function sauverPerso() {
-    window.Sauvegarde.ecrire("perso", perso);
-  }
-
   // ============================================================
   //  MENU PRINCIPAL
   // ============================================================
   function brancherMenuPrincipal() {
     $("#btn-jouer").onclick     = () => montrerEcran("ecran-serveurs");
-    $("#btn-perso").onclick     = () => { montrerEcran("ecran-perso"); ouvrirApercu("perso"); };
-    $("#btn-compagnon").onclick = () => { montrerEcran("ecran-compagnons"); ouvrirApercu("compagnon"); };
+    $("#btn-perso").onclick     = () => montrerEcran("ecran-perso");
+    $("#btn-compagnon").onclick = () => montrerEcran("ecran-compagnons");
     $("#btn-reglages").onclick  = () => montrerEcran("ecran-reglages");
 
     document.querySelectorAll(".btn-retour").forEach(b => {
@@ -125,189 +100,83 @@
   }
 
   // ============================================================
-  //  MENU PERSONNAGE  (peau, cheveux, tenue, accessoires)
-  //  Tout est généré ici pour garder le HTML léger.
+  //  GALERIES  —  cartes avec portraits 3D générés en direct
   // ============================================================
-  function construireMenuPersonnage() {
-    const zone = $("#zone-perso");
-    zone.innerHTML = "";
+  function carteAvecPortrait(item, sourcePortrait, estChoisi, surChoix) {
+    const carte = document.createElement("div");
+    carte.className = "carte" + (estChoisi ? " choisie" : "");
+    carte.tabIndex = 0;
 
-    // ---- Couleur de peau : palette + couleur libre ----
-    zone.appendChild(sectionPalette("Couleur de peau", D.peaux, () => perso.peau, (c) => {
-      perso.peau = c; sauverPerso(); rafraichirApercuPerso();
-    }));
+    const cadre = document.createElement("div");
+    cadre.className = "portrait";
+    // en attendant la photo : un joli dégradé aux couleurs de l'objet
+    cadre.style.background =
+      `linear-gradient(135deg, ${item.corps || "#3a3f58"}, ${item.accent || "#22263c"})`;
+    carte.appendChild(cadre);
 
-    // ---- Cheveux : coiffure + couleur ----
-    zone.appendChild(sectionCartesMini("Coiffure", D.cheveux, () => perso.cheveux.style, (id) => {
-      perso.cheveux.style = id; sauverPerso(); rafraichirApercuPerso();
-    }));
-    zone.appendChild(sectionPalette("Couleur de cheveux", D.couleursCheveux, () => perso.cheveux.couleur, (c) => {
-      perso.cheveux.couleur = c; sauverPerso(); rafraichirApercuPerso();
-    }));
-
-    // ---- Tenue ----
-    zone.appendChild(sectionCartesMini("Tenue", D.tenues, () => perso.tenue, (id) => {
-      perso.tenue = id; sauverPerso(); rafraichirApercuPerso();
-    }, (t) => `<span style="background:${t.haut}"></span><span style="background:${t.bas}"></span>`));
-
-    // ---- Accessoires ----
-    const acc = [
-      ["Chapeau", "chapeaux", "chapeau"],
-      ["Lunettes & masques", "lunettes", "lunettes"],
-      ["Cape", "capes", "cape"],
-      ["Chaussures", "chaussures", "chaussures"],
-      ["Sac", "sacs", "sac"],
-      ["Bijoux", "bijoux", "bijou"],
-      ["Tatouage", "tatouages", "tatouage"]
-    ];
-    acc.forEach(([titre, liste, cle]) => {
-      zone.appendChild(sectionCartesMini(titre, D[liste], () => perso[cle], (id) => {
-        perso[cle] = id; sauverPerso(); rafraichirApercuPerso();
-      }, (item) => `<span style="background:${item.couleur || "#3a3f58"}"></span>`));
+    window.Portraits.demander(item.id, sourcePortrait, (url) => {
+      if (!url) return;
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = item.nom;
+      cadre.style.background = "radial-gradient(circle at 50% 35%, #4a1219, #22060a)";
+      cadre.appendChild(img);
     });
-  }
 
-  // Section avec des pastilles rondes de couleurs + choix libre
-  function sectionPalette(titre, couleurs, lireActuel, surChoix) {
-    const sec = document.createElement("div");
-    sec.className = "section-perso";
-    const h = document.createElement("div");
-    h.className = "titre-section"; h.textContent = titre;
-    sec.appendChild(h);
+    const nom = document.createElement("div");
+    nom.className = "nom"; nom.textContent = item.nom;
+    carte.appendChild(nom);
+    if (item.description) {
+      const desc = document.createElement("div");
+      desc.className = "desc"; desc.textContent = item.description;
+      carte.appendChild(desc);
+    }
 
-    const rangee = document.createElement("div");
-    rangee.className = "rangee-swatches";
-
-    const majSelection = () => {
-      rangee.querySelectorAll(".swatch").forEach(s => {
-        s.classList.toggle("choisie", s.dataset.c === lireActuel());
-      });
+    const choisir = () => {
+      surChoix();
+      carte.parentElement.querySelectorAll(".carte").forEach(c => c.classList.remove("choisie"));
+      carte.classList.add("choisie");
     };
+    carte.onclick = choisir;
+    carte.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choisir(); } };
+    return carte;
+  }
 
-    couleurs.forEach(c => {
-      const s = document.createElement("button");
-      s.className = "swatch";
-      s.style.background = c;
-      s.dataset.c = c;
-      s.title = c;
-      s.onclick = () => { surChoix(c); majSelection(); };
-      rangee.appendChild(s);
+  function remplirPersonnages() {
+    const grille = $("#grille-perso");
+    grille.innerHTML = "";
+    D.personnages.forEach(p => {
+      grille.appendChild(carteAvecPortrait(
+        p,
+        { fichier: p.fichier },
+        choixPersonnage.id === p.id,
+        () => {
+          choixPersonnage = p;
+          window.Sauvegarde.ecrire("personnage", p.id);
+        }
+      ));
     });
-
-    // couleur libre
-    const libre = document.createElement("input");
-    libre.type = "color";
-    libre.className = "swatch-libre";
-    libre.value = lireActuel();
-    libre.title = "Couleur libre";
-    libre.oninput = () => { surChoix(libre.value); majSelection(); };
-    rangee.appendChild(libre);
-
-    sec.appendChild(rangee);
-    majSelection();
-    return sec;
   }
 
-  // Section avec des petites cartes (coiffures, tenues, accessoires)
-  function sectionCartesMini(titre, liste, lireActuel, surChoix, renduPastille) {
-    const sec = document.createElement("div");
-    sec.className = "section-perso";
-    const h = document.createElement("div");
-    h.className = "titre-section"; h.textContent = titre;
-    sec.appendChild(h);
-
-    const grille = document.createElement("div");
-    grille.className = "grille mini";
-
-    liste.forEach(item => {
-      const carte = document.createElement("div");
-      carte.className = "carte mini" + (item.id === lireActuel() ? " choisie" : "");
-      carte.tabIndex = 0;
-      if (renduPastille && item.id !== "aucun") {
-        const p = document.createElement("div");
-        p.className = "pastille petite";
-        p.innerHTML = renduPastille(item);
-        carte.appendChild(p);
-      }
-      const nom = document.createElement("div");
-      nom.className = "nom"; nom.textContent = item.nom;
-      carte.appendChild(nom);
-
-      const choisir = () => {
-        surChoix(item.id);
-        grille.querySelectorAll(".carte").forEach(c => c.classList.remove("choisie"));
-        carte.classList.add("choisie");
-      };
-      carte.onclick = choisir;
-      carte.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choisir(); } };
-      grille.appendChild(carte);
-    });
-    sec.appendChild(grille);
-    return sec;
-  }
-
-  function rafraichirApercuPerso() {
-    window.Apercu.montrer("avatar", configAvatar());
-  }
-
-  // ============================================================
-  //  COMPAGNONS
-  // ============================================================
   function remplirCompagnons() {
     const grille = $("#grille-compagnons");
     grille.innerHTML = "";
     D.companions.forEach(comp => {
-      const carte = document.createElement("div");
-      carte.className = "carte" + (comp.id === choixCompagnon.id ? " choisie" : "");
-      carte.tabIndex = 0;
-
-      const past = document.createElement("div");
-      past.className = "pastille";
-      if (comp.forme === "aucun") {
-        past.innerHTML = `<span style="background:#2b080b"></span>`;
-      } else {
-        past.innerHTML =
-          `<span style="background:${comp.corps}"></span>` +
-          `<span style="background:${comp.accent}"></span>`;
-      }
-      carte.appendChild(past);
-
-      const nom = document.createElement("div");
-      nom.className = "nom"; nom.textContent = comp.nom;
-      carte.appendChild(nom);
-
-      const choisir = () => {
-        choixCompagnon = comp;
-        window.Sauvegarde.ecrire("compagnon", comp.id);
-        grille.querySelectorAll(".carte").forEach(c => c.classList.remove("choisie"));
-        carte.classList.add("choisie");
-        window.Apercu.montrer("compagnon", comp);
-      };
-      carte.onclick = choisir;
-      carte.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choisir(); } };
-      grille.appendChild(carte);
+      const source = comp.fichier
+        ? { fichier: comp.fichier }
+        : { builder: () => window.Perso.construireCompagnon(comp) };
+      grille.appendChild(carteAvecPortrait(
+        comp,
+        source,
+        choixCompagnon.id === comp.id,
+        () => {
+          choixCompagnon = comp;
+          window.Sauvegarde.ecrire("compagnon", comp.id);
+        }
+      ));
     });
   }
 
-  // ------------------------------------------------------------
-  //  APERÇU 3D partagé
-  let apercuPret = false;
-  function ouvrirApercu(type) {
-    const conteneur = (type === "perso") ? $("#apercu-perso") : $("#apercu-compagnon");
-    if (!apercuPret) {
-      window.Apercu.init(conteneur);
-      apercuPret = true;
-    } else {
-      conteneur.appendChild(window.Apercu.renderer.domElement);
-      window.Apercu.conteneur = conteneur;
-      window.Apercu._redimensionner();
-    }
-    if (type === "perso") window.Apercu.montrer("avatar", configAvatar());
-    else                  window.Apercu.montrer("compagnon", choixCompagnon);
-  }
-
-  // ============================================================
-  //  RÉGLAGES (curseurs et interrupteurs)
   // ============================================================
   function brancherReglages() {
     const r = window.Reglages;
@@ -416,7 +285,7 @@
     setTimeout(() => {
       window.Jeu.demarrer({
         serveur: serveur,
-        perso: configAvatar(),
+        personnage: choixPersonnage,
         compagnon: choixCompagnon,
         reglages: window.Reglages.actuel,
         canvas: $("#canvas-jeu")

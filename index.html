@@ -46,10 +46,8 @@
       <button class="btn btn-retour">← Retour</button>
       <div class="panneau">
         <h2 class="titre-ecran">Ton personnage</h2>
-        <div class="deux-colonnes">
-          <div id="apercu-perso" class="colonne-apercu"></div>
-          <div class="colonne-cartes" id="zone-perso"></div>
-        </div>
+        <p class="sous-titre-ecran">De vrais modèles 3D animés : marche, course, coups d'épée et tir !</p>
+        <div id="grille-perso" class="grille portraits"></div>
       </div>
     </section>
 
@@ -58,12 +56,7 @@
       <button class="btn btn-retour">← Retour</button>
       <div class="panneau">
         <h2 class="titre-ecran">Choisis ton compagnon</h2>
-        <div class="deux-colonnes">
-          <div id="apercu-compagnon" class="colonne-apercu"></div>
-          <div class="colonne-cartes">
-            <div id="grille-compagnons" class="grille"></div>
-          </div>
-        </div>
+        <div id="grille-compagnons" class="grille portraits"></div>
       </div>
     </section>
 
@@ -148,7 +141,9 @@
       <canvas id="canvas-jeu"></canvas>
       <div class="hud">
         <button id="btn-quitter" class="btn corail">⏻ Quitter</button>
+        <div id="coeurs"></div>
       </div>
+      <div id="degats-flash"></div>
 
       <!-- Inventaire : 6 cases en bas -->
       <div id="barre-inventaire"></div>
@@ -156,7 +151,7 @@
       <!-- Aide contextuelle (ex : "E : ramasser Épée") -->
       <div id="astuce-contexte"></div>
 
-      <div class="astuce-jeu">Clique pour prendre la main · Clic gauche : attaquer · 1-6 : inventaire · Échap : libérer la souris</div>
+      <div class="astuce-jeu">Clique pour prendre la main · Clic : attaquer / tirer · E : ramasser · F : véhicule · 1-6 : inventaire · Échap : libérer la souris</div>
       <div id="chargement"><div class="rond"></div><div>Chargement du monde…</div></div>
     </section>
 
@@ -169,15 +164,18 @@
   <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
   <!-- Données faciles à modifier -->
-  <script src="data/skins.js"></script>
-  <script src="data/accessories.js"></script>
+  <script src="data/characters.js"></script>
   <script src="data/weapons.js"></script>
   <script src="data/companions.js"></script>
   <script src="data/servers.js"></script>
+  <script src="data/vehicles.js"></script>
+  <script src="data/decor.js"></script>
 
   <!-- Notre code -->
   <script src="js/storage.js"></script>
   <script src="js/settings.js"></script>
+  <script src="js/models3d.js"></script>
+  <script src="js/portraits.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/customization.js"></script>
   <script src="js/game.js"></script>

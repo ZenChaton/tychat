@@ -1,8 +1,9 @@
 /* ============================================================
-   JEU  —  le bac à sable 3D jouable
-   Nouveautés : collisions avec tous les blocs (on peut monter
-   dessus), parcours de sauts, monstre à combattre (clic gauche),
-   armes à ramasser (touche Ramasser), inventaire 6 cases.
+   JEU  —  le bac à sable 3D
+   Le joueur est maintenant un vrai modèle 3D animé (marche,
+   course, coups d'épée, tir…). Nouveautés : armes à feu avec
+   projectiles, grenades, véhicules conduisibles, décor
+   modulaire (data/decor.js), cœurs de vie et mallettes de soin.
    ============================================================ */
 
 window.Jeu = {
@@ -11,103 +12,214 @@ window.Jeu = {
   avatar: null, compagnon: null,
   horloge: null, animationId: null,
 
-  // état du joueur
+  // caméra / entrées
   yaw: Math.PI, pitch: 0.25,
-  vitesseY: 0, auSol: true,
-  phaseMarche: 0,
-  touches: {},
+  vitesseY: 0, auSol: true, touches: {},
 
-  // gameplay
-  colliders: [],        // boîtes avec lesquelles on entre en collision
-  objetsSol: [],        // armes posées au sol : {id, mesh, angle}
+  // vie du joueur
+  pv: 5, pvMax: 5, invincible: 0, mort: false, tempsMort: 0,
+
+  // combat
+  projectiles: [], grenades: [], explosions: [],
+  rechargeTir: 0, rechargeMelee: 0, rechargeGrenade: 0,
+  boutonTir: false, dernierTir: -10,
+  attaque: null,          // { t, touche, donnees } pendant un coup de mêlée
+
+  // monde
+  colliders: [], objetsSol: [], soins: [],
+  vehicules: [], enVehicule: null,
   monstre: null,
-  attaque: { active: false, t: 0, touche: false, recharge: 0 },
 
-  RAYON: 0.45,          // demi-largeur du joueur
-  HAUTEUR: 2.9,         // hauteur du joueur
+  // animations du joueur
+  mixerJoueur: null, clips: {}, actionCourante: null,
+  animEtat: null, animVerrou: false,
+  porteMain: null, _enMouvement: false,
 
-  reglages: null,
+  RAYON: 0.45, HAUTEUR: 3.0,
+
+  reglages: null, personnage: null,
   _onKeyDown: null, _onKeyUp: null, _onMouseMove: null,
-  _onMouseDown: null, _onResize: null, _onClickCanvas: null,
+  _onMouseDown: null, _onMouseUp: null, _onResize: null, _onClickCanvas: null,
 
   // ============================================================
   //  DÉMARRAGE
   // ============================================================
   demarrer(config) {
     this.reglages = config.reglages;
+    this.personnage = config.personnage;
     const canvas = config.canvas;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(config.serveur.couleurCiel);
-    this.scene.fog = new THREE.Fog(config.serveur.couleurCiel, 45, 130);
+    this.scene.fog = new THREE.Fog(config.serveur.couleurCiel, 55, 160);
 
-    this.camera = new THREE.PerspectiveCamera(config.reglages.fov, 1, 0.1, 400);
+    this.camera = new THREE.PerspectiveCamera(config.reglages.fov, 1, 0.1, 500);
 
     this.renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = config.reglages.ombres;
 
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.9));
     const soleil = new THREE.DirectionalLight(0xffffff, 0.9);
-    soleil.position.set(20, 35, 15);
+    soleil.position.set(25, 40, 18);
     soleil.castShadow = config.reglages.ombres;
-    soleil.shadow.mapSize.set(1024, 1024);
+    soleil.shadow.mapSize.set(2048, 2048);
     soleil.shadow.camera.near = 1;
-    soleil.shadow.camera.far = 140;
-    soleil.shadow.camera.left = -60; soleil.shadow.camera.right = 60;
-    soleil.shadow.camera.top = 60;   soleil.shadow.camera.bottom = -60;
+    soleil.shadow.camera.far = 160;
+    soleil.shadow.camera.left = -70; soleil.shadow.camera.right = 70;
+    soleil.shadow.camera.top = 70;   soleil.shadow.camera.bottom = -70;
     this.scene.add(soleil);
 
     const sol = new THREE.Mesh(
-      new THREE.PlaneGeometry(300, 300),
+      new THREE.PlaneGeometry(400, 400),
       new THREE.MeshStandardMaterial({ color: config.serveur.couleurSol, roughness: 1 })
     );
     sol.rotation.x = -Math.PI / 2;
     sol.receiveShadow = true;
     this.scene.add(sol);
 
-    // ---- Monde ----
-    this.colliders = [];
-    this.objetsSol = [];
-    this._construireDecor(config.reglages.ombres);
+    // ---- état ----
+    this.colliders = []; this.objetsSol = []; this.soins = [];
+    this.projectiles = []; this.grenades = []; this.explosions = [];
+    this.vehicules = []; this.enVehicule = null;
+    this.pv = this.pvMax; this.invincible = 0; this.mort = false;
+    this.rechargeTir = 0; this.rechargeMelee = 0; this.rechargeGrenade = 0;
+    this.boutonTir = false; this.dernierTir = -10; this.attaque = null;
+    this.mixerJoueur = null; this.clips = {}; this.actionCourante = null;
+    this.animEtat = null; this.animVerrou = false;
+
+    // ---- monde ----
+    this._construireDecorAleatoire(config.reglages.ombres);
     this._construireParcours();
     this._construireZoneArmes();
+    this._chargerDecor();
+    this._chargerVehicules();
+    this._chargerSoins();
     this._creerMonstre();
 
-    // ---- Avatar (toute la personnalisation + arme en main) ----
-    const conf = Object.assign({}, config.perso, { arme: window.Inventaire.objetEnMain() });
-    this.avatar = window.Perso.construireAvatar(conf);
-    this._configPerso = config.perso;
+    // ---- joueur (modèle GLB animé) ----
+    this.avatar = new THREE.Group();
     this.avatar.position.set(0, 0, 0);
     this.scene.add(this.avatar);
+    this._chargerJoueur();
 
-    // Quand l'inventaire change, on change l'arme en main
-    window.Inventaire.onChangement = () => this._changerArmeEnMain();
-
-    // ---- Compagnon ----
+    // ---- compagnon ----
     this.compagnon = window.Perso.construireCompagnon(config.compagnon);
     if (this.compagnon) {
-      this.compagnon.position.set(-2, 1, -2);
+      this.compagnon.position.set(-2, 0.5, -2);
       this.scene.add(this.compagnon);
     }
 
+    window.Inventaire.onChangement = () => this._changerArmeEnMain();
+
     this.yaw = Math.PI; this.pitch = 0.25;
-    this.vitesseY = 0; this.auSol = true; this.phaseMarche = 0;
-    this.touches = {};
-    this.attaque = { active: false, t: 0, touche: false, recharge: 0 };
+    this.vitesseY = 0; this.auSol = true; this.touches = {};
     this.horloge = new THREE.Clock();
     this.actif = true;
 
     window.Inventaire.afficher();
+    this._majCoeurs();
     this._brancherEvenements(canvas);
     this._redimensionner();
     this._boucle();
   },
 
-  // ------------------------------------------------------------
-  //  Ajoute un bloc AU DÉCOR + à la liste des collisions.
-  //  Tout ce qui est créé avec ça est solide.
-  // ------------------------------------------------------------
+  // ============================================================
+  //  JOUEUR  —  chargement du modèle + animations + main
+  // ============================================================
+  _chargerJoueur() {
+    const p = this.personnage;
+    window.Modeles.charger(p.fichier, (modele, animations) => {
+      if (!this.actif) return;
+      window.Modeles.normaliser(modele, { taille: 3.1 * (p.echelle || 1) });
+      if (p.retourner) modele.rotation.y = Math.PI;
+      this.avatar.add(modele);
+      this.scene.updateMatrixWorld(true);
+
+      // animations
+      if (animations && animations.length) {
+        this.mixerJoueur = new THREE.AnimationMixer(modele);
+        const cherche = (fin) => animations.find(c => c.name.endsWith(fin));
+        ["Idle_Neutral", "Idle_Gun", "Idle_Sword", "Idle_Gun_Shoot",
+         "Walk", "Run", "Run_Shoot", "Sword_Slash", "Gun_Shoot",
+         "Punch_Right", "Death", "HitRecieve", "Wave"].forEach(nom => {
+          const c = cherche(nom);
+          if (c) this.clips[nom] = c;
+        });
+        this.mixerJoueur.addEventListener("finished", () => {
+          this.animVerrou = false;
+          this.animEtat = null;
+        });
+        this._basculerAnim("Idle_Neutral");
+      }
+
+      // main droite : on cherche l'os du poignet pour y accrocher l'arme
+      let os = null;
+      modele.traverse(o => {
+        if (!os && o.isBone && /wrist\.?r$|hand\.?r$|fist\.?r$/i.test(o.name)) os = o;
+      });
+      this.porteMain = new THREE.Group();
+      if (os) {
+        os.add(this.porteMain);
+        // l'os peut être à une échelle bizarre : on compense
+        const ws = new THREE.Vector3();
+        os.getWorldScale(ws);
+        if (ws.x > 0.0001) this.porteMain.scale.setScalar(1 / ws.x);
+      } else {
+        this.porteMain.position.set(0.45, 1.9, 0.35);
+        this.avatar.add(this.porteMain);
+      }
+      this._changerArmeEnMain();
+    });
+  },
+
+  _basculerAnim(cle, uneFois) {
+    if (!this.mixerJoueur || !this.clips[cle]) return false;
+    if (this.animEtat === cle && !uneFois) return true;
+    const action = this.mixerJoueur.clipAction(this.clips[cle]);
+    action.reset();
+    if (uneFois) {
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+    } else {
+      action.setLoop(THREE.LoopRepeat, Infinity);
+    }
+    action.fadeIn(0.12).play();
+    if (this.actionCourante && this.actionCourante !== action) {
+      this.actionCourante.fadeOut(0.12);
+    }
+    this.actionCourante = action;
+    this.animEtat = cle;
+    return true;
+  },
+
+  _donneesArme(id) {
+    return (window.GAME_DATA.armes || []).find(a => a.id === id) || null;
+  },
+
+  _creerModeleArme(id, cb) {
+    const a = this._donneesArme(id);
+    if (!a) { cb(null); return; }
+    window.Modeles.charger(a.fichier, (clone) => {
+      cb(window.Modeles.normaliserArme(clone, a));
+    });
+  },
+
+  _changerArmeEnMain() {
+    if (!this.porteMain) return;
+    while (this.porteMain.children.length) this.porteMain.remove(this.porteMain.children[0]);
+    const id = window.Inventaire.objetEnMain();
+    if (!id) return;
+    this._creerModeleArme(id, (m) => {
+      if (m && window.Inventaire.objetEnMain() === id && this.porteMain) {
+        this.porteMain.add(m);
+      }
+    });
+  },
+
+  // ============================================================
+  //  DÉCOR
+  // ============================================================
   _blocSolide(x, y, z, lx, ly, lz, couleur, ombres) {
     const bloc = new THREE.Mesh(
       new THREE.BoxGeometry(lx, ly, lz),
@@ -124,140 +236,283 @@ window.Jeu = {
     return bloc;
   },
 
-  _construireDecor(ombres) {
-    const couleurs = [0xEF6461, 0xFFD166, 0x43BCCD, 0x845EC2, 0x2E7D53, 0x4EA8DE];
-    for (let i = 0; i < 26; i++) {
-      const taille = 1.2 + Math.random() * 3;
-      const rayon = 26 + Math.random() * 55;
+  _construireDecorAleatoire(ombres) {
+    const couleurs = [0xEF6461, 0xFFD166, 0x43BCCD, 0x845EC2];
+    for (let i = 0; i < 10; i++) {
+      const taille = 1.2 + Math.random() * 2.5;
+      const rayon = 40 + Math.random() * 45;
       const angle = Math.random() * Math.PI * 2;
       const x = Math.cos(angle) * rayon, z = Math.sin(angle) * rayon;
-      // on évite le parcours (x>10,z<-6), la zone d'armes et le monstre
-      if (x > 8 && z < -4) continue;
-      if (x < -12 && z > 8) continue;
-      this._blocSolide(
-        x, taille / 2, z, taille, taille, taille,
-        couleurs[Math.floor(Math.random() * couleurs.length)], ombres
-      );
+      this._blocSolide(x, taille / 2, z, taille, taille, taille,
+        couleurs[Math.floor(Math.random() * couleurs.length)], ombres);
     }
   },
 
-  // ------------------------------------------------------------
-  //  PARCOURS : plateformes de plus en plus hautes + drapeau
-  // ------------------------------------------------------------
   _construireParcours() {
     const o = this.reglages.ombres;
     const jaune = 0xFFD166, corail = 0xEF6461;
-    // départ au sol puis on monte (écarts sautables : ~2.5 de large)
     const marches = [
-      [14, 0.5, -8,  3, 1, 3],
-      [18, 1.2, -10, 3, 2.4, 3],
-      [22, 2.0, -13, 3, 4.0, 3],
-      [26, 2.8, -10, 3, 5.6, 3],
-      [30, 3.6, -13, 3, 7.2, 3],
-      [34, 4.4, -10, 4, 8.8, 4]
+      [14, 0.5, -8,  3, 1, 3], [18, 1.2, -10, 3, 2.4, 3],
+      [22, 2.0, -13, 3, 4.0, 3], [26, 2.8, -10, 3, 5.6, 3],
+      [30, 3.6, -13, 3, 7.2, 3], [34, 4.4, -10, 4, 8.8, 4]
     ];
     marches.forEach((m, i) => {
       this._blocSolide(m[0], m[1], m[2], m[3], m[4], m[5], i % 2 ? corail : jaune, o);
     });
-    // drapeau au sommet
-    const dernier = marches[marches.length - 1];
+    const d = marches[marches.length - 1];
     const mat = new THREE.MeshStandardMaterial({ color: 0xFDF6E3 });
     const poteau = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3, 8), mat);
-    poteau.position.set(dernier[0], dernier[1] + dernier[4] / 2 + 1.5, dernier[2]);
-    const drapeau = new THREE.Mesh(
-      new THREE.BoxGeometry(1.2, 0.7, 0.05),
-      new THREE.MeshStandardMaterial({ color: 0x43BCCD })
-    );
-    drapeau.position.set(dernier[0] + 0.65, dernier[1] + dernier[4] / 2 + 2.6, dernier[2]);
+    poteau.position.set(d[0], d[1] + d[4] / 2 + 1.5, d[2]);
+    const drapeau = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0x43BCCD }));
+    drapeau.position.set(d[0] + 0.65, d[1] + d[4] / 2 + 2.6, d[2]);
     this.scene.add(poteau, drapeau);
   },
 
-  // ------------------------------------------------------------
-  //  ZONE D'ARMES : 3 socles avec une arme à ramasser dessus
-  // ------------------------------------------------------------
   _construireZoneArmes() {
     const o = this.reglages.ombres;
-    const armes = ["epee", "hache", "marteau"];
+    // toutes les armes à ramasser (l'épée est déjà en poche au départ)
+    const armes = ["hache", "marteau", "pistolet", "smg", "assaut", "sniper", "grenade"];
     armes.forEach((id, i) => {
-      const x = -18 - i * 4, z = 14;
+      const x = -16 - (i % 4) * 4, z = 12 + Math.floor(i / 4) * 5;
       this._blocSolide(x, 0.4, z, 1.6, 0.8, 1.6, 0x5A6472, o);
-      this._poserObjetSol(id, x, 1.3, z);
+      this._poserObjetSol(id, x, 1.2, z);
     });
   },
 
-  // Pose une arme au sol (ou sur un socle) que l'on peut ramasser
   _poserObjetSol(idArme, x, y, z) {
-    const mesh = window.Perso.construireArme(idArme);
-    if (!mesh) return;
-    mesh.position.set(x, y, z);
-    mesh.rotation.z = 0.5;
-    this.scene.add(mesh);
-    this.objetsSol.push({ id: idArme, mesh: mesh, yBase: y });
+    const groupe = new THREE.Group();
+    groupe.position.set(x, y, z);
+    this.scene.add(groupe);
+    const objet = { id: idArme, mesh: groupe, yBase: y };
+    this.objetsSol.push(objet);
+    this._creerModeleArme(idArme, (m) => {
+      if (m && this.objetsSol.includes(objet)) {
+        m.rotation.z = 0.4;
+        groupe.add(m);
+      }
+    });
   },
 
-  // ------------------------------------------------------------
-  //  MONSTRE  —  le "Grognon"
-  // ------------------------------------------------------------
-  _creerMonstre() {
-    const g = new THREE.Group();
-    const P = window.Perso;
-    // corps rond et trapu, style cartoon
-    const corps = P._ovale(0.85, 0.8, 0.75, 0x845EC2);
-    corps.position.y = 0.8;
-    const ventre = P._ovale(0.55, 0.5, 0.3, 0xB9A5DE);
-    ventre.position.set(0, 0.7, 0.5);
-    ventre.userData.sansContour = true;
-    // yeux méchants qui brillent
-    const oeilG = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 12),
-      new THREE.MeshStandardMaterial({ color: 0xEF6461, emissive: 0xEF6461, emissiveIntensity: 0.7 }));
-    oeilG.position.set(-0.32, 1.1, 0.62);
-    oeilG.userData.sansContour = true;
-    const oeilD = oeilG.clone(); oeilD.position.x = 0.32;
-    // sourcils froncés
-    const sourcilG = P._ovale(0.18, 0.04, 0.05, 0x1a1c2e);
-    sourcilG.position.set(-0.32, 1.28, 0.66); sourcilG.rotation.z = -0.4;
-    sourcilG.userData.sansContour = true;
-    const sourcilD = P._ovale(0.18, 0.04, 0.05, 0x1a1c2e);
-    sourcilD.position.set(0.32, 1.28, 0.66); sourcilD.rotation.z = 0.4;
-    sourcilD.userData.sansContour = true;
-    // cornes arrondies
-    const corneG = P._ovale(0.12, 0.28, 0.12, 0xFDF6E3);
-    corneG.position.set(-0.45, 1.62, 0); corneG.rotation.z = 0.4;
-    const corneD = P._ovale(0.12, 0.28, 0.12, 0xFDF6E3);
-    corneD.position.set(0.45, 1.62, 0); corneD.rotation.z = -0.4;
-    // petites pattes
-    [-1, 1].forEach(c => {
-      const patte = P._ovale(0.2, 0.18, 0.24, 0x6B4BA3);
-      patte.position.set(0.4 * c, 0.15, 0.1);
-      g.add(patte);
-    });
-    // dents qui dépassent
-    [-0.15, 0.15].forEach(x => {
-      const dent = P._ovale(0.05, 0.09, 0.04, 0xFFFFFF);
-      dent.position.set(x, 0.52, 0.68);
-      g.add(dent);
-    });
-    g.add(corps, ventre, oeilG, oeilD, sourcilG, sourcilD, corneG, corneD);
+  // Décor modulaire depuis data/decor.js
+  _chargerDecor() {
+    (window.GAME_DATA.decor || []).forEach(e => {
+      window.Modeles.charger(e.fichier, (clone) => {
+        if (!this.actif) return;
+        let objet = e.piece ? window.Modeles.extrairePiece(clone, e.piece) : clone;
+        window.Modeles.normaliser(objet, { taille: e.taille, echelle: e.echelle });
+        // centre en X/Z puis place
+        this.scene.add(objet);
+        objet.updateMatrixWorld(true);
+        let boite = new THREE.Box3().setFromObject(objet);
+        const centre = new THREE.Vector3(); boite.getCenter(centre);
+        objet.position.x -= centre.x;
+        objet.position.z -= centre.z;
+        objet.position.x += e.x || 0;
+        objet.position.z += e.z || 0;
+        objet.position.y += e.y || 0;
+        objet.rotation.y = (e.ry || 0) * Math.PI / 180;
+        objet.updateMatrixWorld(true);
 
-    // barre de vie : 3 petits blocs verts au-dessus de la tête
-    const pv = [];
-    for (let i = 0; i < 3; i++) {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, 0.1),
-        new THREE.MeshStandardMaterial({ color: 0x7CFC9A, emissive: 0x2E7D53, emissiveIntensity: 0.5 }));
-      b.position.set((i - 1) * 0.45, 2.1, 0);
-      b.userData.sansContour = true;
-      g.add(b); pv.push(b);
+        if (e.collision !== false) {
+          boite = new THREE.Box3().setFromObject(objet);
+          let { min, max } = boite;
+          if (e.collision === "tronc") {
+            // seul le centre bloque (parfait pour les arbres)
+            const cx = (min.x + max.x) / 2, cz = (min.z + max.z) / 2;
+            const lx = (max.x - min.x) * 0.15, lz = (max.z - min.z) * 0.15;
+            min = new THREE.Vector3(cx - lx, min.y, cz - lz);
+            max = new THREE.Vector3(cx + lx, max.y, cz + lz);
+          }
+          this.colliders.push({
+            minX: min.x, maxX: max.x, minY: min.y,
+            maxY: max.y, minZ: min.z, maxZ: max.z
+          });
+        }
+      });
+    });
+  },
+
+  // ============================================================
+  //  VÉHICULES
+  // ============================================================
+  _chargerVehicules() {
+    (window.GAME_DATA.vehicules || []).forEach(v => {
+      const groupe = new THREE.Group();
+      groupe.position.set(v.x || 0, 0, v.z || 0);
+      groupe.rotation.y = (v.ry || 0) * Math.PI / 180;
+      this.scene.add(groupe);
+      const veh = { donnees: v, groupe: groupe, roues: [], vitesse: 0, pret: false };
+      this.vehicules.push(veh);
+      window.Modeles.charger(v.fichier, (clone) => {
+        if (!this.actif) return;
+        // oriente la longueur du véhicule vers l'avant (+Z)
+        const boite = new THREE.Box3().setFromObject(clone);
+        const dims = new THREE.Vector3(); boite.getSize(dims);
+        const interne = new THREE.Group();
+        interne.add(clone);
+        if (dims.x > dims.z) clone.rotation.y = Math.PI / 2;
+        if (v.retourner) interne.rotation.y = Math.PI;
+        window.Modeles.normaliser(interne, { taille: v.taille || 5, axe: "long" });
+        groupe.add(interne);
+        interne.traverse(o => { if (/wheel/i.test(o.name)) veh.roues.push(o); });
+        veh.pret = true;
+      });
+    });
+  },
+
+  _vehiculeProche() {
+    let proche = null, dMin = 3.8;
+    this.vehicules.forEach(v => {
+      const d = this.avatar.position.distanceTo(v.groupe.position);
+      if (d < dMin) { dMin = d; proche = v; }
+    });
+    return proche;
+  },
+
+  _monterDescendre() {
+    if (this.mort) return;
+    if (this.enVehicule) {
+      // on descend, sur le côté du véhicule
+      const v = this.enVehicule;
+      const cote = new THREE.Vector3(Math.cos(v.groupe.rotation.y), 0, -Math.sin(v.groupe.rotation.y));
+      this.avatar.position.copy(v.groupe.position).addScaledVector(cote, 2.6);
+      this.avatar.position.y = 0;
+      this.avatar.visible = true;
+      this.enVehicule = null;
+      this.vitesseY = 0;
+    } else {
+      const v = this._vehiculeProche();
+      if (v && v.pret) {
+        this.enVehicule = v;
+        this.avatar.visible = false;
+      }
+    }
+  },
+
+  _majConduite(dt) {
+    const v = this.enVehicule;
+    if (!v) return;
+    const t = this.reglages.touches;
+    const d = v.donnees;
+    let accel = 0, tourne = 0;
+    if (this.touches[t.avant])   accel += 1;
+    if (this.touches[t.arriere]) accel -= 1;
+    if (this.touches[t.gauche])  tourne -= 1;
+    if (this.touches[t.droite])  tourne += 1;
+
+    if (accel !== 0) v.vitesse += accel * (d.acceleration || 12) * dt;
+    else v.vitesse *= Math.max(0, 1 - 1.6 * dt);   // frottement
+    const max = d.vitesseMax || 16;
+    v.vitesse = Math.max(-max / 2, Math.min(max, v.vitesse));
+
+    if (Math.abs(v.vitesse) > 0.3) {
+      v.groupe.rotation.y -= tourne * dt * 1.7 *
+        Math.sign(v.vitesse) * Math.min(1, Math.abs(v.vitesse) / 7);
     }
 
-    P._appliquerContours(g, 1.05);
-    g.position.set(-20, 0, -16);
-    this.scene.add(g);
-    this.monstre = {
-      mesh: g, corps: corps, blocsPV: pv,
-      pv: 3, pvMax: 3,
-      maison: new THREE.Vector3(-20, 0, -16),
-      mort: false, tempsRespawn: 0, tempsFlash: 0
-    };
+    const avant = new THREE.Vector3(Math.sin(v.groupe.rotation.y), 0, Math.cos(v.groupe.rotation.y));
+    this._bougerAxeObjet(v.groupe, 1.7, 4, "x", avant.x * v.vitesse * dt, 0.6);
+    this._bougerAxeObjet(v.groupe, 1.7, 4, "z", avant.z * v.vitesse * dt, 0.6);
+    // suit le relief bas (routes, trottoirs)
+    v.groupe.position.y = this._solPour(v.groupe.position.x, v.groupe.position.z,
+      v.groupe.position.y + 0.6, 1.4);
+
+    v.roues.forEach(r => { r.rotation.x += v.vitesse * dt * 1.4; });
+
+    // le joueur "suit" le véhicule (caméra, monstre, compagnon)
+    this.avatar.position.copy(v.groupe.position);
+  },
+
+  // ============================================================
+  //  SOINS  (mallettes qui rendent des cœurs)
+  // ============================================================
+  _chargerSoins() {
+    const positions = [[-16, -12], [30, -6], [4, 40]];
+    positions.forEach(p => {
+      const groupe = new THREE.Group();
+      groupe.position.set(p[0], 0.8, p[1]);
+      this.scene.add(groupe);
+      const s = { mesh: groupe, actif: true, timer: 0, yBase: 0.8 };
+      this.soins.push(s);
+      window.Modeles.charger("assets/models/MalletteSoin.glb", (clone) => {
+        if (!this.actif) return;
+        window.Modeles.normaliser(clone, { taille: 0.8 });
+        clone.position.y = -0.4;
+        groupe.add(clone);
+      });
+    });
+  },
+
+  _majSoins(dt, t) {
+    this.soins.forEach(s => {
+      if (!s.actif) {
+        s.timer -= dt;
+        if (s.timer <= 0) { s.actif = true; s.mesh.visible = true; }
+        return;
+      }
+      s.mesh.rotation.y = t * 1.2;
+      s.mesh.position.y = s.yBase + Math.sin(t * 2) * 0.12;
+      if (!this.mort && this.pv < this.pvMax &&
+          this.avatar.position.distanceTo(s.mesh.position) < 1.8) {
+        this.pv = Math.min(this.pvMax, this.pv + 2);
+        this._majCoeurs();
+        s.actif = false; s.timer = 20;
+        s.mesh.visible = false;
+      }
+    });
+  },
+
+  // ============================================================
+  //  VIE DU JOUEUR
+  // ============================================================
+  _majCoeurs() {
+    const el = document.getElementById("coeurs");
+    if (!el) return;
+    let html = "";
+    for (let i = 0; i < this.pvMax; i++) {
+      html += `<span class="${i < this.pv ? "plein" : "vide"}">❤</span>`;
+    }
+    el.innerHTML = html;
+  },
+
+  _blesserJoueur(depuis) {
+    if (this.invincible > 0 || this.mort || this.enVehicule) return;
+    this.pv -= 1;
+    this.invincible = 1.2;
+    this._majCoeurs();
+    // flash rouge à l'écran
+    const flash = document.getElementById("degats-flash");
+    if (flash) {
+      flash.classList.add("actif");
+      setTimeout(() => flash.classList.remove("actif"), 220);
+    }
+    // recul
+    if (depuis) {
+      const recul = this.avatar.position.clone().sub(depuis).setY(0).normalize();
+      this._bougerAxe("x", recul.x * 1.6);
+      this._bougerAxe("z", recul.z * 1.6);
+    }
+    if (this.pv <= 0) this._mourir();
+  },
+
+  _mourir() {
+    this.mort = true;
+    this.tempsMort = 1.8;
+    this.animVerrou = true;
+    this._basculerAnim("Death", true);
+  },
+
+  _reapparaitre() {
+    this.mort = false;
+    this.animVerrou = false;
+    this.animEtat = null;
+    this.pv = this.pvMax;
+    this.invincible = 2;
+    this.avatar.position.set(0, 0, 0);
+    this.vitesseY = 0;
+    this._majCoeurs();
+    this._basculerAnim("Idle_Neutral");
   },
 
   // ============================================================
@@ -269,13 +524,12 @@ window.Jeu = {
       if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
         e.preventDefault();
       }
-      // cases d'inventaire 1 à 6
       if (e.code.startsWith("Digit")) {
         const n = parseInt(e.code.slice(5));
         if (n >= 1 && n <= 6) window.Inventaire.choisir(n - 1);
       }
-      // ramasser
-      if (e.code === this.reglages.touches.ramasser) this._essayerRamasser();
+      if (e.code === this.reglages.touches.ramasser && !this.enVehicule) this._essayerRamasser();
+      if (e.code === this.reglages.touches.vehicule) this._monterDescendre();
     };
     this._onKeyUp = (e) => { this.touches[e.code] = false; };
 
@@ -283,7 +537,6 @@ window.Jeu = {
       if (document.pointerLockElement !== canvas) return;
       const sens = 0.0022 * (this.reglages.sensibilite / 50);
       this.yaw -= e.movementX * sens;
-      // souris vers le haut = regarder vers le haut (sauf si "inverser" est coché)
       const sensY = this.reglages.inverserY ? -1 : 1;
       this.pitch += e.movementY * sens * sensY;
       this.pitch = Math.max(-0.4, Math.min(1.1, this.pitch));
@@ -291,8 +544,14 @@ window.Jeu = {
 
     this._onMouseDown = (e) => {
       if (document.pointerLockElement !== canvas) return;
-      if (e.button === 0) this._lancerAttaque();
+      if (e.button !== 0 || this.enVehicule || this.mort) return;
+      const arme = this._donneesArme(window.Inventaire.objetEnMain());
+      if (!arme) this._coupDePoing();
+      else if (arme.type === "melee") this._lancerAttaque(arme);
+      else if (arme.type === "tir") { this.boutonTir = true; this._tirer(arme); }
+      else if (arme.type === "grenade") this._lancerGrenade(arme);
     };
+    this._onMouseUp = (e) => { if (e.button === 0) this.boutonTir = false; };
 
     this._onClickCanvas = () => { if (this.actif) canvas.requestPointerLock(); };
     this._onResize = () => this._redimensionner();
@@ -301,6 +560,7 @@ window.Jeu = {
     window.addEventListener("keyup", this._onKeyUp);
     window.addEventListener("mousemove", this._onMouseMove);
     window.addEventListener("mousedown", this._onMouseDown);
+    window.addEventListener("mouseup", this._onMouseUp);
     window.addEventListener("resize", this._onResize);
     canvas.addEventListener("click", this._onClickCanvas);
   },
@@ -321,62 +581,84 @@ window.Jeu = {
     const dt = Math.min(this.horloge.getDelta(), 0.05);
     const t = this.horloge.getElapsedTime();
 
-    this._deplacerJoueur(dt);
-    this._animerAttaque(dt);
+    if (this.invincible > 0) this.invincible -= dt;
+    if (this.rechargeTir > 0) this.rechargeTir -= dt;
+    if (this.rechargeMelee > 0) this.rechargeMelee -= dt;
+    if (this.rechargeGrenade > 0) this.rechargeGrenade -= dt;
+
+    if (this.mort) {
+      this.tempsMort -= dt;
+      if (this.tempsMort <= 0) this._reapparaitre();
+    } else if (this.enVehicule) {
+      this._majConduite(dt);
+    } else {
+      this._deplacerJoueur(dt);
+      this._majAttaque(dt);
+      // tir automatique si on maintient le bouton
+      if (this.boutonTir) {
+        const arme = this._donneesArme(window.Inventaire.objetEnMain());
+        if (arme && arme.type === "tir" && arme.auto) this._tirer(arme);
+      }
+    }
+
+    this._majAnimationJoueur(t);
+    this._majProjectiles(dt);
+    this._majGrenades(dt);
+    this._majExplosions(dt);
     this._placerCamera();
     this._suivreCompagnon(dt, t);
     this._animerObjetsSol(t);
+    this._majSoins(dt, t);
     this._majMonstre(dt);
     this._majAstuce();
+
+    if (this.mixerJoueur) this.mixerJoueur.update(dt);
 
     this.renderer.render(this.scene, this.camera);
   },
 
   // ============================================================
-  //  COLLISIONS
-  //  Le joueur est une boîte (RAYON x HAUTEUR). On déplace un
-  //  axe à la fois : si on rentre dans un bloc, on se cale
-  //  contre sa paroi. La gravité gère le fait de monter dessus.
+  //  COLLISIONS (génériques : joueur + véhicules)
   // ============================================================
-
-  // Le joueur (à la position p, hauteur y) chevauche-t-il ce bloc ?
-  _chevauche(c, px, py, pz) {
-    const r = this.RAYON;
-    return px + r > c.minX && px - r < c.maxX &&
-           pz + r > c.minZ && pz - r < c.maxZ &&
-           py + this.HAUTEUR > c.minY + 0.05 && py + 0.05 < c.maxY;
+  _chevaucheObjet(c, px, py, pz, rayon, hauteur) {
+    return px + rayon > c.minX && px - rayon < c.maxX &&
+           pz + rayon > c.minZ && pz - rayon < c.maxZ &&
+           py + hauteur > c.minY + 0.05 && py + 0.05 < c.maxY;
   },
 
-  _bougerAxe(axe, delta) {
-    const p = this.avatar.position;
+  _bougerAxeObjet(objet, rayon, hauteur, axe, delta, margeBas) {
+    const p = objet.position;
     p[axe] += delta;
-    const r = this.RAYON;
     for (const c of this.colliders) {
-      // si le bloc est plus bas que nos genoux, on pourra monter dessus
-      // (la marche automatique se fait par le saut / la gravité) :
-      if (c.maxY <= p.y + 0.3) continue;
-      if (this._chevauche(c, p.x, p.y, p.z)) {
-        if (axe === "x") p.x = (delta > 0) ? c.minX - r : c.maxX + r;
-        else             p.z = (delta > 0) ? c.minZ - r : c.maxZ + r;
+      if (c.maxY <= p.y + (margeBas || 0.3)) continue;
+      if (this._chevaucheObjet(c, p.x, p.y, p.z, rayon, hauteur)) {
+        if (axe === "x") p.x = (delta > 0) ? c.minX - rayon : c.maxX + rayon;
+        else             p.z = (delta > 0) ? c.minZ - rayon : c.maxZ + rayon;
       }
     }
   },
 
-  // Hauteur du "sol" sous les pieds (0 = le sol, ou le dessus d'un bloc).
-  // refY = la hauteur du joueur AVANT la chute de cette image : ainsi,
-  // même en tombant très vite, un bloc dont le sommet était sous nos
-  // pieds au départ compte comme un sol (fini de s'enfoncer dedans !).
-  _hauteurSol(refY) {
-    const p = this.avatar.position;
-    if (refY === undefined) refY = p.y;
-    const r = this.RAYON;
+  _bougerAxe(axe, delta) {
+    this._bougerAxeObjet(this.avatar, this.RAYON, this.HAUTEUR, axe, delta, 0.3);
+  },
+
+  _solPour(x, z, refY, rayon) {
     let h = 0;
     for (const c of this.colliders) {
-      const dessus = p.x + r > c.minX && p.x - r < c.maxX &&
-                     p.z + r > c.minZ && p.z - r < c.maxZ;
+      const dessus = x + rayon > c.minX && x - rayon < c.maxX &&
+                     z + rayon > c.minZ && z - rayon < c.maxZ;
       if (dessus && c.maxY <= refY + 0.25 && c.maxY > h) h = c.maxY;
     }
     return h;
+  },
+
+  _pointDansCollider(p) {
+    for (const c of this.colliders) {
+      if (p.x > c.minX && p.x < c.maxX &&
+          p.y > c.minY && p.y < c.maxY &&
+          p.z > c.minZ && p.z < c.maxZ) return true;
+    }
+    return false;
   },
 
   _deplacerJoueur(dt) {
@@ -393,21 +675,16 @@ window.Jeu = {
     dir.addScaledVector(avant, av);
     dir.addScaledVector(droite, cot);
 
-    const enMouvement = dir.lengthSq() > 0.0001;
+    this._enMouvement = dir.lengthSq() > 0.0001;
     const vitesse = 8;
 
-    if (enMouvement) {
+    if (this._enMouvement) {
       dir.normalize();
       this._bougerAxe("x", dir.x * vitesse * dt);
       this._bougerAxe("z", dir.z * vitesse * dt);
       this.avatar.rotation.y = Math.atan2(dir.x, dir.z);
-      this.phaseMarche += dt * 10;
-    } else {
-      this.phaseMarche = 0;
     }
-    this._animerMarche(enMouvement);
 
-    // Saut + gravité + atterrissage sur les blocs
     if (this.touches[m.sauter] && this.auSol) {
       this.vitesseY = 9.5;
       this.auSol = false;
@@ -416,7 +693,8 @@ window.Jeu = {
     this.vitesseY -= 24 * dt;
     this.avatar.position.y += this.vitesseY * dt;
 
-    const solIci = this._hauteurSol(yAvantChute);
+    const solIci = this._solPour(this.avatar.position.x, this.avatar.position.z,
+      yAvantChute, this.RAYON);
     if (this.avatar.position.y <= solIci && this.vitesseY <= 0) {
       this.avatar.position.y = solIci;
       this.vitesseY = 0;
@@ -426,82 +704,289 @@ window.Jeu = {
     }
   },
 
-  _animerMarche(enMouvement) {
-    const d = this.avatar.userData;
-    if (!d.jambeG) return;
-    const b = enMouvement ? Math.sin(this.phaseMarche) * 0.6 : 0;
-    d.jambeG.rotation.x = b;
-    d.jambeD.rotation.x = -b;
-    d.brasG.rotation.x = -b;
-    // le bras droit n'est balancé que s'il n'attaque pas
-    if (!this.attaque.active) d.brasD.rotation.x = b;
+  // ============================================================
+  //  ANIMATIONS DU JOUEUR (état selon le contexte)
+  // ============================================================
+  _majAnimationJoueur(t) {
+    if (!this.mixerJoueur || this.animVerrou || this.mort || this.enVehicule) return;
+    const arme = this._donneesArme(window.Inventaire.objetEnMain());
+    const enTir = this.boutonTir || (t - this.dernierTir < 0.35);
+    let cle;
+    if (!this.auSol) return;      // en l'air : on garde l'animation en cours
+    if (this._enMouvement) {
+      cle = (enTir && this.clips["Run_Shoot"]) ? "Run_Shoot" : "Run";
+    } else if (enTir && this.clips["Idle_Gun_Shoot"]) {
+      cle = "Idle_Gun_Shoot";
+    } else if (arme && (arme.type === "tir" || arme.type === "grenade")) {
+      cle = "Idle_Gun";
+    } else if (arme) {
+      cle = "Idle_Sword";
+    } else {
+      cle = "Idle_Neutral";
+    }
+    this._basculerAnim(cle);
   },
 
   // ============================================================
-  //  ATTAQUE  (clic gauche)
+  //  COMBAT  —  mêlée
   // ============================================================
-  _lancerAttaque() {
-    if (this.attaque.active || this.attaque.recharge > 0) return;
-    this.attaque.active = true;
-    this.attaque.t = 0;
-    this.attaque.touche = false;
+  _coupDePoing() {
+    if (this.rechargeMelee > 0 || this.animVerrou) return;
+    this.rechargeMelee = 0.5;
+    this.animVerrou = true;
+    if (!this._basculerAnim("Punch_Right", true)) this.animVerrou = false;
+    this.attaque = { t: 0, touche: false, donnees: { degats: 1, portee: 2.4 } };
   },
 
-  _animerAttaque(dt) {
-    if (this.attaque.recharge > 0) this.attaque.recharge -= dt;
-    if (!this.attaque.active) return;
+  _lancerAttaque(arme) {
+    if (this.rechargeMelee > 0 || this.animVerrou) return;
+    this.rechargeMelee = arme.cadence;
+    this.animVerrou = true;
+    if (!this._basculerAnim("Sword_Slash", true)) this.animVerrou = false;
+    this.attaque = { t: 0, touche: false, donnees: arme };
+  },
 
+  _majAttaque(dt) {
+    if (!this.attaque) return;
     this.attaque.t += dt;
-    const duree = 0.32;
-    const p = Math.min(this.attaque.t / duree, 1);
-    // le bras droit part en arrière puis frappe vers l'avant
-    this.avatar.userData.brasD.rotation.x = -Math.sin(p * Math.PI) * 2.1;
-
-    // au milieu du geste, on teste si le monstre est touché
-    if (!this.attaque.touche && p > 0.4) {
+    if (!this.attaque.touche && this.attaque.t > 0.32) {
       this.attaque.touche = true;
-      this._frapperMonstre();
+      this._frapperMonstre(this.attaque.donnees.degats, this.attaque.donnees.portee);
     }
-    if (p >= 1) {
-      this.attaque.active = false;
-      this.attaque.recharge = 0.25;
-      this.avatar.userData.brasD.rotation.x = 0;
+    if (this.attaque.t > 1.0) this.attaque = null;
+  },
+
+  // ============================================================
+  //  COMBAT  —  tir
+  // ============================================================
+  _directionVisee() {
+    const dir = new THREE.Vector3();
+    this.camera.getWorldDirection(dir);
+    return dir;
+  },
+
+  _tirer(arme) {
+    if (this.rechargeTir > 0 || this.animVerrou) return;
+    this.rechargeTir = arme.cadence;
+    this.dernierTir = this.horloge.getElapsedTime();
+
+    const dir = this._directionVisee();
+    const depart = this.avatar.position.clone();
+    depart.y += 2.2;
+    depart.addScaledVector(dir, 0.9);
+
+    if (!this._geoProjectile) {
+      this._geoProjectile = new THREE.SphereGeometry(0.09, 8, 6);
+      this._matProjectile = new THREE.MeshStandardMaterial({
+        color: 0xFFE9A8, emissive: 0xFFD166, emissiveIntensity: 1
+      });
+    }
+    const mesh = new THREE.Mesh(this._geoProjectile, this._matProjectile);
+    mesh.position.copy(depart);
+    this.scene.add(mesh);
+    this.projectiles.push({
+      mesh: mesh,
+      vel: dir.clone().multiplyScalar(arme.vitesse || 34),
+      vie: 1.6,
+      degats: arme.degats || 1
+    });
+  },
+
+  _majProjectiles(dt) {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
+      p.mesh.position.addScaledVector(p.vel, dt);
+      p.vie -= dt;
+      let mortP = p.vie <= 0 || p.mesh.position.y < 0.05 ||
+                  this._pointDansCollider(p.mesh.position);
+      if (!mortP && this.monstre && !this.monstre.mort) {
+        const centre = this.monstre.mesh.position.clone(); centre.y += 1;
+        if (p.mesh.position.distanceTo(centre) < 1.5) {
+          this._degatsMonstre(p.degats);
+          mortP = true;
+        }
+      }
+      if (mortP) {
+        this.scene.remove(p.mesh);
+        this.projectiles.splice(i, 1);
+      }
     }
   },
 
-  _frapperMonstre() {
+  // ============================================================
+  //  COMBAT  —  grenades
+  // ============================================================
+  _lancerGrenade(arme) {
+    if (this.rechargeGrenade > 0 || this.animVerrou) return;
+    this.rechargeGrenade = arme.cadence;
+
+    const dir = this._directionVisee();
+    const groupe = new THREE.Group();
+    groupe.position.copy(this.avatar.position);
+    groupe.position.y += 2.2;
+    groupe.position.addScaledVector(dir, 0.8);
+    this.scene.add(groupe);
+    window.Modeles.charger(arme.fichier, (clone) => {
+      window.Modeles.normaliser(clone, { taille: arme.taille || 0.35, poserAuSol: false });
+      groupe.add(clone);
+    });
+    this.grenades.push({
+      mesh: groupe,
+      vel: dir.clone().multiplyScalar(11).add(new THREE.Vector3(0, 4.5, 0)),
+      fuse: 1.4,
+      donnees: arme
+    });
+  },
+
+  _majGrenades(dt) {
+    for (let i = this.grenades.length - 1; i >= 0; i--) {
+      const g = this.grenades[i];
+      g.vel.y -= 18 * dt;
+      g.mesh.position.addScaledVector(g.vel, dt);
+      g.mesh.rotation.x += dt * 6;
+      g.fuse -= dt;
+      if (g.fuse <= 0 || g.mesh.position.y <= 0.15) {
+        this._exploser(g.mesh.position.clone(), g.donnees);
+        this.scene.remove(g.mesh);
+        this.grenades.splice(i, 1);
+      }
+    }
+  },
+
+  _exploser(pos, donnees) {
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 16, 12),
+      new THREE.MeshBasicMaterial({
+        color: 0xFFB347, transparent: true, opacity: 0.85,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    mesh.position.copy(pos);
+    mesh.scale.setScalar(0.4);
+    this.scene.add(mesh);
+    this.explosions.push({ mesh: mesh, t: 0, rayon: donnees.rayon || 4 });
+
+    // dégâts de zone sur le monstre
+    if (this.monstre && !this.monstre.mort) {
+      const d = pos.distanceTo(this.monstre.mesh.position);
+      if (d < (donnees.rayon || 4)) {
+        this._degatsMonstre(donnees.degats || 3);
+        const recul = this.monstre.mesh.position.clone().sub(pos).setY(0).normalize();
+        this.monstre.mesh.position.addScaledVector(recul, 2.5);
+      }
+    }
+    // petit souffle sur le joueur (sans dégâts)
+    const dj = pos.distanceTo(this.avatar.position);
+    if (dj < 3 && !this.enVehicule) {
+      const recul = this.avatar.position.clone().sub(pos).setY(0).normalize();
+      this._bougerAxe("x", recul.x * 1.2);
+      this._bougerAxe("z", recul.z * 1.2);
+    }
+  },
+
+  _majExplosions(dt) {
+    for (let i = this.explosions.length - 1; i >= 0; i--) {
+      const e = this.explosions[i];
+      e.t += dt;
+      const p = e.t / 0.35;
+      e.mesh.scale.setScalar(0.4 + p * e.rayon);
+      e.mesh.material.opacity = 0.85 * (1 - p);
+      if (p >= 1) {
+        this.scene.remove(e.mesh);
+        this.explosions.splice(i, 1);
+      }
+    }
+  },
+
+  // ============================================================
+  //  MONSTRE  —  le Grognon
+  // ============================================================
+  _creerMonstre() {
+    const g = new THREE.Group();
+    const P = window.Perso;
+    const corps = P._ovale(0.85, 0.8, 0.75, 0x845EC2);
+    corps.position.y = 0.8;
+    const ventre = P._ovale(0.55, 0.5, 0.3, 0xB9A5DE);
+    ventre.position.set(0, 0.7, 0.5);
+    ventre.userData.sansContour = true;
+    const oeilG = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 12),
+      new THREE.MeshStandardMaterial({ color: 0xEF6461, emissive: 0xEF6461, emissiveIntensity: 0.7 }));
+    oeilG.position.set(-0.32, 1.1, 0.62);
+    oeilG.userData.sansContour = true;
+    const oeilD = oeilG.clone(); oeilD.position.x = 0.32;
+    const sourcilG = P._ovale(0.18, 0.04, 0.05, 0x1a1c2e);
+    sourcilG.position.set(-0.32, 1.28, 0.66); sourcilG.rotation.z = -0.4;
+    sourcilG.userData.sansContour = true;
+    const sourcilD = P._ovale(0.18, 0.04, 0.05, 0x1a1c2e);
+    sourcilD.position.set(0.32, 1.28, 0.66); sourcilD.rotation.z = 0.4;
+    sourcilD.userData.sansContour = true;
+    const corneG = P._ovale(0.12, 0.28, 0.12, 0xFDF6E3);
+    corneG.position.set(-0.45, 1.62, 0); corneG.rotation.z = 0.4;
+    const corneD = P._ovale(0.12, 0.28, 0.12, 0xFDF6E3);
+    corneD.position.set(0.45, 1.62, 0); corneD.rotation.z = -0.4;
+    [-1, 1].forEach(c => {
+      const patte = P._ovale(0.2, 0.18, 0.24, 0x6B4BA3);
+      patte.position.set(0.4 * c, 0.15, 0.1);
+      g.add(patte);
+    });
+    [-0.15, 0.15].forEach(x => {
+      const dent = P._ovale(0.05, 0.09, 0.04, 0xFFFFFF);
+      dent.position.set(x, 0.52, 0.68);
+      g.add(dent);
+    });
+    g.add(corps, ventre, oeilG, oeilD, sourcilG, sourcilD, corneG, corneD);
+
+    const pv = [];
+    for (let i = 0; i < 3; i++) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0x7CFC9A, emissive: 0x2E7D53, emissiveIntensity: 0.5 }));
+      b.position.set((i - 1) * 0.45, 2.1, 0);
+      b.userData.sansContour = true;
+      g.add(b); pv.push(b);
+    }
+
+    P._appliquerContours(g, 1.05);
+    g.position.set(-20, 0, -16);
+    this.scene.add(g);
+    this.monstre = {
+      mesh: g, corps: corps, blocsPV: pv,
+      pv: 3, pvMax: 3,
+      maison: new THREE.Vector3(-20, 0, -16),
+      mort: false, tempsRespawn: 0, tempsFlash: 0
+    };
+  },
+
+  _frapperMonstre(degats, portee) {
     const mo = this.monstre;
     if (!mo || mo.mort) return;
     const d = this.avatar.position.distanceTo(mo.mesh.position);
-    if (d > 3.2) return;
-
-    mo.pv -= 1;
-    mo.tempsFlash = 0.18;
-    mo.corps.material.color.set(0xFF4444);
-    // petit recul du monstre
+    if (d > (portee || 3.2)) return;
+    this._degatsMonstre(degats || 1);
     const recul = mo.mesh.position.clone().sub(this.avatar.position).setY(0).normalize();
     mo.mesh.position.addScaledVector(recul, 0.8);
-    // mise à jour de la barre de vie
-    mo.blocsPV.forEach((b, i) => { b.visible = i < mo.pv; });
+  },
 
+  _degatsMonstre(n) {
+    const mo = this.monstre;
+    if (!mo || mo.mort) return;
+    mo.pv -= n;
+    mo.tempsFlash = 0.18;
+    mo.corps.material.color.set(0xFF4444);
+    mo.blocsPV.forEach((b, i) => { b.visible = i < mo.pv; });
     if (mo.pv <= 0) {
       mo.mort = true;
-      mo.tempsRespawn = 8;   // il revient au bout de 8 secondes
+      mo.tempsRespawn = 8;
     }
   },
 
   _majMonstre(dt) {
     const mo = this.monstre;
     if (!mo) return;
-
-    // fin du flash rouge
     if (mo.tempsFlash > 0) {
       mo.tempsFlash -= dt;
       if (mo.tempsFlash <= 0) mo.corps.material.color.set(0x845EC2);
     }
-
     if (mo.mort) {
-      // il s'aplatit puis disparaît, et revient plus tard
       mo.mesh.scale.y = Math.max(0.05, mo.mesh.scale.y - dt * 2);
       mo.tempsRespawn -= dt;
       if (mo.tempsRespawn <= 0) {
@@ -512,34 +997,26 @@ window.Jeu = {
       }
       return;
     }
-
-    // il s'approche doucement du joueur s'il est dans son coin
     const versJoueur = this.avatar.position.clone().sub(mo.mesh.position).setY(0);
     const d = versJoueur.length();
-    if (d < 14 && d > 1.6) {
+    if (d < 14 && d > 1.6 && !this.mort) {
       versJoueur.normalize();
       mo.mesh.position.addScaledVector(versJoueur, dt * 2.2);
       mo.mesh.lookAt(this.avatar.position.x, mo.mesh.position.y, this.avatar.position.z);
     } else if (d > 14) {
-      // sinon il rentre chez lui
       const maison = mo.maison.clone().sub(mo.mesh.position).setY(0);
       if (maison.length() > 0.5) {
         maison.normalize();
         mo.mesh.position.addScaledVector(maison, dt * 1.5);
       }
     }
-    // s'il touche le joueur, il le bouscule un peu (pas de dégâts)
-    if (d < 1.6) {
-      const pousse = versJoueur.normalize();
-      this._bougerAxe("x", pousse.x * dt * 6);
-      this._bougerAxe("z", pousse.z * dt * 6);
-    }
-    // les blocs de vie regardent la caméra
+    // il mord !
+    if (d < 1.7 && !this.mort) this._blesserJoueur(mo.mesh.position);
     mo.blocsPV.forEach(b => b.lookAt(this.camera.position));
   },
 
   // ============================================================
-  //  OBJETS AU SOL  (armes qui flottent en tournant)
+  //  OBJETS AU SOL / RAMASSAGE
   // ============================================================
   _animerObjetsSol(t) {
     this.objetsSol.forEach(o => {
@@ -549,7 +1026,7 @@ window.Jeu = {
   },
 
   _objetProche() {
-    let plusProche = null, dMin = 2.2;
+    let plusProche = null, dMin = 2.4;
     this.objetsSol.forEach(o => {
       const d = this.avatar.position.distanceTo(o.mesh.position);
       if (d < dMin) { dMin = d; plusProche = o; }
@@ -558,58 +1035,57 @@ window.Jeu = {
   },
 
   _essayerRamasser() {
+    if (this.mort) return;
     const o = this._objetProche();
     if (!o) return;
     const res = window.Inventaire.ramasser(o.id);
     if (!res.ok) return;
-    // on retire l'objet du sol
     this.scene.remove(o.mesh);
     this.objetsSol = this.objetsSol.filter(x => x !== o);
-    // si l'inventaire était plein, l'ancien objet tombe au sol
     if (res.largue) {
       const p = this.avatar.position;
       this._poserObjetSol(res.largue, p.x + 1, Math.max(p.y, 0) + 0.7, p.z + 1);
     }
   },
 
-  _changerArmeEnMain() {
-    if (!this.avatar) return;
-    const porte = this.avatar.userData.porteArme;
-    while (porte.children.length) porte.remove(porte.children[0]);
-    const id = window.Inventaire.objetEnMain();
-    if (id) {
-      const arme = window.Perso.construireArme(id);
-      if (arme) porte.add(arme);
-    }
-  },
-
-  // Petit message d'aide contextuel
   _majAstuce() {
     const el = document.getElementById("astuce-contexte");
     if (!el) return;
-    const o = this._objetProche();
-    if (o) {
-      const arme = (window.GAME_DATA.armes || []).find(a => a.id === o.id);
-      const touche = window.Reglages.etiquetteTouche(this.reglages.touches.ramasser);
-      el.textContent = touche + " : ramasser " + (arme ? arme.nom : "l'objet");
-      el.style.display = "block";
+    const tv = window.Reglages.etiquetteTouche(this.reglages.touches.vehicule);
+    const tr = window.Reglages.etiquetteTouche(this.reglages.touches.ramasser);
+    let texte = null;
+    if (this.enVehicule) {
+      texte = tv + " : descendre du véhicule";
     } else {
-      el.style.display = "none";
+      const v = this._vehiculeProche();
+      const o = this._objetProche();
+      if (v) texte = tv + " : monter dans " + (v.donnees.nom || "le véhicule");
+      else if (o) {
+        const arme = this._donneesArme(o.id);
+        texte = tr + " : ramasser " + (arme ? arme.nom : "l'objet");
+      }
     }
+    if (texte) { el.textContent = texte; el.style.display = "block"; }
+    else el.style.display = "none";
   },
 
   // ============================================================
   //  CAMÉRA & COMPAGNON
   // ============================================================
   _placerCamera() {
-    const distH = 7 * Math.cos(this.pitch);
-    const cx = this.avatar.position.x - Math.sin(this.yaw) * distH;
-    const cz = this.avatar.position.z - Math.cos(this.yaw) * distH;
-    const cy = this.avatar.position.y + 3 + Math.sin(this.pitch) * 7;
+    let yaw = this.yaw, dist = 7, hauteur = 3, viseY = 1.8;
+    if (this.enVehicule) {
+      yaw = this.enVehicule.groupe.rotation.y;
+      dist = 11; hauteur = 4.5; viseY = 1.5;
+    }
+    const distH = dist * Math.cos(this.pitch);
+    const cx = this.avatar.position.x - Math.sin(yaw) * distH;
+    const cz = this.avatar.position.z - Math.cos(yaw) * distH;
+    const cy = this.avatar.position.y + hauteur + Math.sin(this.pitch) * dist;
     this.camera.position.set(cx, cy, cz);
     this.camera.lookAt(
       this.avatar.position.x,
-      this.avatar.position.y + 1.8,
+      this.avatar.position.y + viseY,
       this.avatar.position.z
     );
   },
@@ -619,8 +1095,6 @@ window.Jeu = {
     const derriere = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     const cible = this.avatar.position.clone().addScaledVector(derriere, -1.8);
     cible.x += 1.2; cible.z += 0.4;
-    // les mascottes trottinent près du sol (petits bonds),
-    // le drone flotte plus haut
     if (this.compagnon.userData.vole) {
       cible.y = this.avatar.position.y + 1.4 + Math.sin(t * 2.8) * 0.15;
     } else {
@@ -632,7 +1106,7 @@ window.Jeu = {
   },
 
   // ============================================================
-  //  ARRÊT + NETTOYAGE
+  //  ARRÊT
   // ============================================================
   arreter() {
     this.actif = false;
@@ -643,6 +1117,7 @@ window.Jeu = {
     window.removeEventListener("keyup", this._onKeyUp);
     window.removeEventListener("mousemove", this._onMouseMove);
     window.removeEventListener("mousedown", this._onMouseDown);
+    window.removeEventListener("mouseup", this._onMouseUp);
     window.removeEventListener("resize", this._onResize);
     window.Inventaire.onChangement = null;
 
@@ -650,6 +1125,9 @@ window.Jeu = {
       while (this.scene.children.length) this.scene.remove(this.scene.children[0]);
     }
     this.avatar = null; this.compagnon = null; this.monstre = null;
-    this.colliders = []; this.objetsSol = [];
+    this.colliders = []; this.objetsSol = []; this.projectiles = [];
+    this.grenades = []; this.explosions = []; this.vehicules = [];
+    this.soins = []; this.enVehicule = null;
+    this.mixerJoueur = null; this.porteMain = null;
   }
 };
