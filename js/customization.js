@@ -114,6 +114,58 @@ window.Perso = {
   },
 
 
+
+  // ============================================================
+  //  LE GROGNON  —  monstre fait maison (utilisé par le jeu
+  //  et par l'éditeur de mondes)
+  // ============================================================
+  construireGrognon() {
+    const g = new THREE.Group();
+    const P = this;
+    const corps = P._ovale(0.85, 0.8, 0.75, 0x845EC2);
+    corps.position.y = 0.8;
+    const ventre = P._ovale(0.55, 0.5, 0.3, 0xB9A5DE);
+    ventre.position.set(0, 0.7, 0.5);
+    ventre.userData.sansContour = true;
+    const oeilG = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 12),
+      new THREE.MeshStandardMaterial({ color: 0xEF6461, emissive: 0xEF6461, emissiveIntensity: 0.7 }));
+    oeilG.position.set(-0.32, 1.1, 0.62);
+    oeilG.userData.sansContour = true;
+    const oeilD = oeilG.clone(); oeilD.position.x = 0.32;
+    const sourcilG = P._ovale(0.18, 0.04, 0.05, 0x1a1c2e);
+    sourcilG.position.set(-0.32, 1.28, 0.66); sourcilG.rotation.z = -0.4;
+    sourcilG.userData.sansContour = true;
+    const sourcilD = P._ovale(0.18, 0.04, 0.05, 0x1a1c2e);
+    sourcilD.position.set(0.32, 1.28, 0.66); sourcilD.rotation.z = 0.4;
+    sourcilD.userData.sansContour = true;
+    const corneG = P._ovale(0.12, 0.28, 0.12, 0xFDF6E3);
+    corneG.position.set(-0.45, 1.62, 0); corneG.rotation.z = 0.4;
+    const corneD = P._ovale(0.12, 0.28, 0.12, 0xFDF6E3);
+    corneD.position.set(0.45, 1.62, 0); corneD.rotation.z = -0.4;
+    [-1, 1].forEach(cote => {
+      const patte = P._ovale(0.2, 0.18, 0.24, 0x6B4BA3);
+      patte.position.set(0.4 * cote, 0.15, 0.1);
+      g.add(patte);
+    });
+    [-0.15, 0.15].forEach(x => {
+      const dent = P._ovale(0.05, 0.09, 0.04, 0xFFFFFF);
+      dent.position.set(x, 0.52, 0.68);
+      g.add(dent);
+    });
+    g.add(corps, ventre, oeilG, oeilD, sourcilG, sourcilD, corneG, corneD);
+
+    const blocsPV = [];
+    for (let i = 0; i < 3; i++) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0x7CFC9A, emissive: 0x2E7D53, emissiveIntensity: 0.5 }));
+      b.position.set((i - 1) * 0.45, 2.1, 0);
+      b.userData.sansContour = true;
+      g.add(b); blocsPV.push(b);
+    }
+    P._appliquerContours(g, 1.05);
+    return { groupe: g, corps: corps, blocsPV: blocsPV };
+  },
+
   // ============================================================
   //  COMPAGNONS
   //  1) Si le compagnon a un "fichier" (.glb), on charge le

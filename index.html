@@ -136,6 +136,34 @@
       </div>
     </section>
 
+    <!-- ========== ÉDITEUR DE MONDES ========== -->
+    <section id="ecran-editeur" class="ecran">
+      <canvas id="canvas-editeur"></canvas>
+      <div id="editeur-haut">
+        <button id="btn-editeur-retour" class="btn">← Retour</button>
+        <input id="editeur-nom" type="text" maxlength="24" placeholder="Nom du monde…">
+        <label class="ed-couleur">Ciel <input type="color" id="editeur-ciel" value="#87CEEB"></label>
+        <label class="ed-couleur">Sol <input type="color" id="editeur-sol" value="#7CB342"></label>
+        <button id="btn-editeur-sauver" class="btn jaune">💾 Sauvegarder</button>
+      </div>
+      <div id="editeur-palette">
+        <div id="editeur-categories"></div>
+        <div id="editeur-items"></div>
+      </div>
+      <div id="editeur-outils">
+        <button id="btn-ed-tourner" class="btn-outil" title="Tourner">⟳</button>
+        <button id="btn-ed-plus" class="btn-outil" title="Agrandir">＋</button>
+        <button id="btn-ed-moins" class="btn-outil" title="Réduire">－</button>
+        <button id="btn-ed-suppr" class="btn-outil danger" title="Supprimer">🗑</button>
+        <button id="btn-ed-fini" class="btn-outil" title="Terminé">✔</button>
+      </div>
+      <div id="editeur-stop">
+        <button id="btn-ed-stop" class="btn-outil" title="Arrêter de poser">✋ Arrêter de poser</button>
+      </div>
+      <div id="editeur-aide"></div>
+      <div class="astuce-jeu">Clic gauche : poser / sélectionner · Clic droit maintenu : tourner la caméra · Molette : zoom · ZQSD : se déplacer · R : rotation</div>
+    </section>
+
     <!-- ========== EN JEU ========== -->
     <section id="ecran-jeu" class="ecran">
       <canvas id="canvas-jeu"></canvas>
@@ -170,6 +198,7 @@
   <script src="data/servers.js"></script>
   <script src="data/vehicles.js"></script>
   <script src="data/decor.js"></script>
+  <script src="data/editor-catalog.js"></script>
 
   <!-- Notre code -->
   <script src="js/storage.js"></script>
@@ -178,6 +207,7 @@
   <script src="js/portraits.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/customization.js"></script>
+  <script src="js/editor.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
 </body>

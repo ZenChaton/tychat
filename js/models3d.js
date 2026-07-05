@@ -25,6 +25,25 @@ window.Modeles = {
     );
   },
 
+
+  // Boîte englobante FIABLE : les modèles animés (squelette) ont
+  // parfois une géométrie minuscule agrandie par l'armature, ce qui
+  // trompe Box3. On mesure alors par la position réelle des os.
+  boiteReelle(objet) {
+    objet.updateMatrixWorld(true);
+    const boite = new THREE.Box3();
+    const v = new THREE.Vector3();
+    let nbOs = 0;
+    objet.traverse(o => {
+      if (o.isBone) { boite.expandByPoint(o.getWorldPosition(v)); nbOs++; }
+    });
+    if (nbOs < 3) return new THREE.Box3().setFromObject(objet);
+    // petite marge : la "peau" dépasse un peu des os
+    const dims = new THREE.Vector3(); boite.getSize(dims);
+    boite.expandByScalar(Math.max(dims.y * 0.09, 0.02));
+    return boite;
+  },
+
   _cloner(scene) {
     const c = scene.clone(true);
     c.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
@@ -53,7 +72,7 @@ window.Modeles = {
   // Renvoie la boîte englobante finale.
   normaliser(objet, options) {
     const o = options || {};
-    let boite = new THREE.Box3().setFromObject(objet);
+    let boite = this.boiteReelle(objet);
     const dims = new THREE.Vector3(); boite.getSize(dims);
     let facteur = o.echelle || 1;
     if (o.taille) {
@@ -63,10 +82,10 @@ window.Modeles = {
       if (ref > 0.0001) facteur = (o.taille * (o.echelle || 1)) / ref;
     }
     objet.scale.multiplyScalar(facteur);
-    boite = new THREE.Box3().setFromObject(objet);
+    boite = this.boiteReelle(objet);
     if (o.poserAuSol !== false) {
       objet.position.y -= boite.min.y;
-      boite = new THREE.Box3().setFromObject(objet);
+      boite = this.boiteReelle(objet);
     }
     return boite;
   },

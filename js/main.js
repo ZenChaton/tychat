@@ -97,6 +97,86 @@
       }
       grille.appendChild(carte);
     });
+
+    // ---- les mondes créés dans l'éditeur ----
+    const mondes = window.Sauvegarde.lire("mondes", []);
+    mondes.forEach(monde => {
+      const carte = document.createElement("div");
+      carte.className = "carte";
+      carte.tabIndex = 0;
+
+      const apercu = document.createElement("div");
+      apercu.className = "pastille";
+      apercu.innerHTML =
+        `<span style="background:${monde.couleurCiel}"></span>` +
+        `<span style="background:${monde.couleurSol}"></span>`;
+      carte.appendChild(apercu);
+
+      const nom = document.createElement("div");
+      nom.className = "nom"; nom.textContent = monde.nom;
+      carte.appendChild(nom);
+
+      const desc = document.createElement("div");
+      desc.className = "desc";
+      desc.textContent = "Créé par toi · " + (monde.objets || []).length + " objets";
+      carte.appendChild(desc);
+
+      const actions = document.createElement("div");
+      actions.className = "actions-monde";
+      const btnModif = document.createElement("button");
+      btnModif.textContent = "✏️ Modifier";
+      btnModif.onclick = (e) => { e.stopPropagation(); ouvrirEditeur(monde); };
+      const btnSuppr = document.createElement("button");
+      btnSuppr.textContent = "🗑 Supprimer";
+      btnSuppr.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm("Supprimer le monde « " + monde.nom + " » ?")) {
+          const liste = window.Sauvegarde.lire("mondes", []).filter(x => x.id !== monde.id);
+          window.Sauvegarde.ecrire("mondes", liste);
+          remplirServeurs();
+        }
+      };
+      actions.appendChild(btnModif);
+      actions.appendChild(btnSuppr);
+      carte.appendChild(actions);
+
+      const lancer = () => lancerJeu({
+        nom: monde.nom,
+        couleurCiel: monde.couleurCiel,
+        couleurSol: monde.couleurSol,
+        objets: monde.objets || []
+      });
+      carte.onclick = lancer;
+      carte.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); lancer(); } };
+      grille.appendChild(carte);
+    });
+
+    // ---- la carte "Créer un monde" ----
+    const creer = document.createElement("div");
+    creer.className = "carte creer-monde";
+    creer.tabIndex = 0;
+    creer.textContent = "➕ Créer un monde";
+    creer.onclick = () => ouvrirEditeur(null);
+    creer.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ouvrirEditeur(null); } };
+    grille.appendChild(creer);
+  }
+
+  // ============================================================
+  //  ÉDITEUR DE MONDES
+  // ============================================================
+  function ouvrirEditeur(monde) {
+    montrerEcran("ecran-editeur");
+    window.Editeur.ouvrir(monde, {
+      retour: () => montrerEcran("ecran-serveurs"),
+      sauver: (nouveau) => {
+        const liste = window.Sauvegarde.lire("mondes", []);
+        const index = liste.findIndex(x => x.id === nouveau.id);
+        if (index >= 0) liste[index] = nouveau; else liste.push(nouveau);
+        window.Sauvegarde.ecrire("mondes", liste);
+        remplirServeurs();
+        montrerEcran("ecran-serveurs");
+      }
+    });
   }
 
   // ============================================================

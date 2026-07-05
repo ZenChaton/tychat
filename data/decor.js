@@ -10,6 +10,8 @@
    - ry        : rotation en degrés
    - taille    : hauteur cible en unités (auto-échelle).
                  Sans taille ni echelle : taille réelle du modèle.
+   - axe       : "long" pour mesurer la plus grande dimension
+                 (pratique pour les objets plats comme les routes)
    - echelle   : multiplicateur simple (autre façon de régler)
    - collision : true (bloque, par défaut), false (traversable),
                  "tronc" (bloque seulement au centre : idéal arbres)
@@ -33,13 +35,13 @@ window.GAME_DATA = window.GAME_DATA || {};
 window.GAME_DATA.decor = [
 
   /* ---------- Une petite rue (tuiles de route + trottoirs) ---------- */
-  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: -12, z: 26, taille: 0.35, echelle: 12, collision: false },
-  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: -8,  z: 26, taille: 0.35, echelle: 12, collision: false },
-  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: -4,  z: 26, taille: 0.35, echelle: 12, collision: false },
-  { fichier: "assets/models/Kit_Route.glb", piece: "road_crossing", x: 0,   z: 26, taille: 0.35, echelle: 12, collision: false },
-  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: 4,   z: 26, taille: 0.35, echelle: 12, collision: false },
-  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: 8,   z: 26, taille: 0.35, echelle: 12, collision: false },
-  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: 12,  z: 26, taille: 0.35, echelle: 12, collision: false },
+  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: -12, z: 26, taille: 4, axe: "long", collision: false },
+  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: -8,  z: 26, taille: 4, axe: "long", collision: false },
+  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: -4,  z: 26, taille: 4, axe: "long", collision: false },
+  { fichier: "assets/models/Kit_Route.glb", piece: "road_crossing", x: 0,   z: 26, taille: 4, axe: "long", collision: false },
+  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: 4,   z: 26, taille: 4, axe: "long", collision: false },
+  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: 8,   z: 26, taille: 4, axe: "long", collision: false },
+  { fichier: "assets/models/Kit_Route.glb", piece: "road_square",   x: 12,  z: 26, taille: 4, axe: "long", collision: false },
 
   /* ---------- Mobilier urbain ---------- */
   { fichier: "assets/models/Lampadaire.glb",   x: -10, z: 22.5, taille: 4.5 },

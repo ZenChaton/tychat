@@ -400,9 +400,11 @@ input[type="range"] {
    CŒURS DE VIE + FLASH DE DÉGÂTS
    ============================================================ */
 #coeurs {
-  position: absolute;
+  position: fixed;
   top: 18px;
   right: 18px;
+  left: auto;
+  z-index: 30;
   font-size: 30px;
   letter-spacing: 4px;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
@@ -421,3 +423,101 @@ input[type="range"] {
   z-index: 40;
 }
 #degats-flash.actif { opacity: 1; }
+
+
+/* ============================================================
+   ÉDITEUR DE MONDES
+   ============================================================ */
+#ecran-editeur { padding: 0; }
+#canvas-editeur { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+#editeur-haut {
+  position: fixed; top: 12px; left: 12px; right: 300px;
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  z-index: 20;
+}
+#editeur-nom {
+  flex: 1; min-width: 140px; max-width: 300px;
+  padding: 10px 14px; border-radius: 12px;
+  border: 2px solid rgba(255, 209, 102, 0.4);
+  background: rgba(20, 5, 8, 0.75); color: var(--creme);
+  font-family: inherit; font-size: 1rem; font-weight: 700;
+}
+.ed-couleur {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(20, 5, 8, 0.75); padding: 6px 10px;
+  border-radius: 12px; color: var(--creme); font-weight: 700; font-size: 0.9rem;
+}
+.ed-couleur input { width: 34px; height: 26px; border: none; background: none; cursor: pointer; }
+
+#editeur-palette {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 280px;
+  background: rgba(18, 4, 7, 0.92);
+  border-left: 2px solid rgba(255, 209, 102, 0.25);
+  display: flex; flex-direction: column; z-index: 20;
+}
+#editeur-categories {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cat-btn {
+  border: none; border-radius: 10px; padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.08); color: var(--creme);
+  font-family: inherit; font-weight: 700; font-size: 0.8rem; cursor: pointer;
+}
+.cat-btn.actif { background: var(--jaune); color: #4A1319; }
+#editeur-items {
+  flex: 1; overflow-y: auto; padding: 12px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  align-content: start;
+}
+.item-editeur {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent; border-radius: 12px;
+  padding: 8px; cursor: pointer; text-align: center;
+}
+.item-editeur:hover { border-color: rgba(255, 209, 102, 0.5); }
+.item-editeur.actif { border-color: var(--jaune); background: rgba(255, 209, 102, 0.12); }
+.item-editeur .vignette {
+  width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden;
+  background: radial-gradient(circle at 50% 35%, #4a1219, #22060a);
+  margin-bottom: 6px;
+}
+.item-editeur .vignette img { width: 100%; height: 100%; object-fit: cover; }
+.item-editeur .nom-item { color: var(--creme); font-size: 0.78rem; font-weight: 700; }
+
+#editeur-outils, #editeur-stop {
+  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  display: none; gap: 10px; z-index: 20;
+}
+.btn-outil {
+  border: none; border-radius: 14px; padding: 12px 16px;
+  background: rgba(20, 5, 8, 0.85); color: var(--creme);
+  border: 2px solid rgba(255, 209, 102, 0.4);
+  font-family: inherit; font-size: 1.15rem; font-weight: 800; cursor: pointer;
+}
+.btn-outil:hover { background: rgba(255, 209, 102, 0.2); }
+.btn-outil.danger { border-color: rgba(239, 100, 97, 0.6); }
+
+#editeur-aide {
+  position: fixed; top: 68px; left: 12px; z-index: 20;
+  background: rgba(20, 5, 8, 0.75); color: var(--creme);
+  padding: 8px 14px; border-radius: 12px; font-size: 0.9rem; font-weight: 700;
+  max-width: 460px;
+}
+
+/* cartes des mondes créés */
+.carte .actions-monde {
+  display: flex; gap: 8px; justify-content: center; margin-top: 8px;
+}
+.carte .actions-monde button {
+  border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  font-family: inherit; font-weight: 700; font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.12); color: var(--creme);
+}
+.carte .actions-monde button:hover { background: rgba(255, 209, 102, 0.3); }
+.carte.creer-monde {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 140px; font-size: 1.05rem; font-weight: 800;
+  border-style: dashed;
+}

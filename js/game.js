@@ -28,7 +28,7 @@ window.Jeu = {
   // monde
   colliders: [], objetsSol: [], soins: [],
   vehicules: [], enVehicule: null,
-  monstre: null,
+  monstres: [],
 
   // animations du joueur
   mixerJoueur: null, clips: {}, actionCourante: null,
@@ -89,13 +89,19 @@ window.Jeu = {
     this.animEtat = null; this.animVerrou = false;
 
     // ---- monde ----
-    this._construireDecorAleatoire(config.reglages.ombres);
-    this._construireParcours();
-    this._construireZoneArmes();
-    this._chargerDecor();
-    this._chargerVehicules();
-    this._chargerSoins();
-    this._creerMonstre();
+    this.monstres = [];
+    if (config.serveur.objets) {
+      // monde créé dans l'éditeur !
+      this._chargerMonde(config.serveur.objets);
+    } else {
+      this._construireDecorAleatoire(config.reglages.ombres);
+      this._construireParcours();
+      this._construireZoneArmes();
+      this._chargerDecor();
+      (window.GAME_DATA.vehicules || []).forEach(v => this._ajouterVehicule(v));
+      [[-16, -12], [30, -6], [4, 40]].forEach(p => this._ajouterSoin(p[0], p[1]));
+      this._creerMonstre(-20, -16);
+    }
 
     // ---- joueur (modèle GLB animé) ----
     this.avatar = new THREE.Group();
@@ -296,11 +302,15 @@ window.Jeu = {
 
   // Décor modulaire depuis data/decor.js
   _chargerDecor() {
-    (window.GAME_DATA.decor || []).forEach(e => {
+    (window.GAME_DATA.decor || []).forEach(e => this._placerDecor(e));
+  },
+
+  _placerDecor(e) {
+    {
       window.Modeles.charger(e.fichier, (clone) => {
         if (!this.actif) return;
         let objet = e.piece ? window.Modeles.extrairePiece(clone, e.piece) : clone;
-        window.Modeles.normaliser(objet, { taille: e.taille, echelle: e.echelle });
+        window.Modeles.normaliser(objet, { taille: e.taille, echelle: e.echelle, axe: e.axe });
         // centre en X/Z puis place
         this.scene.add(objet);
         objet.updateMatrixWorld(true);
@@ -330,14 +340,14 @@ window.Jeu = {
           });
         }
       });
-    });
+    }
   },
 
   // ============================================================
   //  VÉHICULES
   // ============================================================
-  _chargerVehicules() {
-    (window.GAME_DATA.vehicules || []).forEach(v => {
+  _ajouterVehicule(v) {
+    {
       const groupe = new THREE.Group();
       groupe.position.set(v.x || 0, 0, v.z || 0);
       groupe.rotation.y = (v.ry || 0) * Math.PI / 180;
@@ -358,7 +368,7 @@ window.Jeu = {
         interne.traverse(o => { if (/wheel/i.test(o.name)) veh.roues.push(o); });
         veh.pret = true;
       });
-    });
+    }
   },
 
   _vehiculeProche() {
@@ -427,11 +437,10 @@ window.Jeu = {
   // ============================================================
   //  SOINS  (mallettes qui rendent des cœurs)
   // ============================================================
-  _chargerSoins() {
-    const positions = [[-16, -12], [30, -6], [4, 40]];
-    positions.forEach(p => {
+  _ajouterSoin(x, z) {
+    {
       const groupe = new THREE.Group();
-      groupe.position.set(p[0], 0.8, p[1]);
+      groupe.position.set(x, 0.8, z);
       this.scene.add(groupe);
       const s = { mesh: groupe, actif: true, timer: 0, yBase: 0.8 };
       this.soins.push(s);
@@ -441,7 +450,7 @@ window.Jeu = {
         clone.position.y = -0.4;
         groupe.add(clone);
       });
-    });
+    }
   },
 
   _majSoins(dt, t) {
@@ -609,7 +618,7 @@ window.Jeu = {
     this._suivreCompagnon(dt, t);
     this._animerObjetsSol(t);
     this._majSoins(dt, t);
-    this._majMonstre(dt);
+    this._majMonstres(dt);
     this._majAstuce();
 
     if (this.mixerJoueur) this.mixerJoueur.update(dt);
@@ -799,11 +808,15 @@ window.Jeu = {
       p.vie -= dt;
       let mortP = p.vie <= 0 || p.mesh.position.y < 0.05 ||
                   this._pointDansCollider(p.mesh.position);
-      if (!mortP && this.monstre && !this.monstre.mort) {
-        const centre = this.monstre.mesh.position.clone(); centre.y += 1;
-        if (p.mesh.position.distanceTo(centre) < 1.5) {
-          this._degatsMonstre(p.degats);
-          mortP = true;
+      if (!mortP) {
+        for (const mo of this.monstres) {
+          if (mo.mort) continue;
+          const centre = mo.mesh.position.clone(); centre.y += 1;
+          if (p.mesh.position.distanceTo(centre) < 1.5) {
+            this._degatsMonstre(mo, p.degats);
+            mortP = true;
+            break;
+          }
         }
       }
       if (mortP) {
@@ -866,15 +879,16 @@ window.Jeu = {
     this.scene.add(mesh);
     this.explosions.push({ mesh: mesh, t: 0, rayon: donnees.rayon || 4 });
 
-    // dégâts de zone sur le monstre
-    if (this.monstre && !this.monstre.mort) {
-      const d = pos.distanceTo(this.monstre.mesh.position);
+    // dégâts de zone sur tous les monstres touchés
+    this.monstres.forEach(mo => {
+      if (mo.mort) return;
+      const d = pos.distanceTo(mo.mesh.position);
       if (d < (donnees.rayon || 4)) {
-        this._degatsMonstre(donnees.degats || 3);
-        const recul = this.monstre.mesh.position.clone().sub(pos).setY(0).normalize();
-        this.monstre.mesh.position.addScaledVector(recul, 2.5);
+        this._degatsMonstre(mo, donnees.degats || 3);
+        const recul = mo.mesh.position.clone().sub(pos).setY(0).normalize();
+        mo.mesh.position.addScaledVector(recul, 2.5);
       }
-    }
+    });
     // petit souffle sur le joueur (sans dégâts)
     const dj = pos.distanceTo(this.avatar.position);
     if (dj < 3 && !this.enVehicule) {
@@ -898,76 +912,62 @@ window.Jeu = {
     }
   },
 
+
+  // ============================================================
+  //  MONDE PERSONNALISÉ  (créé dans l'éditeur)
+  // ============================================================
+  _chargerMonde(objets) {
+    objets.forEach(o => {
+      const item = window.EditeurCatalogue.trouver(o.item);
+      if (!item) return;
+      if (item.type === "arme") {
+        this._blocSolide(o.x, 0.4, o.z, 1.6, 0.8, 1.6, 0x5A6472, this.reglages.ombres);
+        this._poserObjetSol(item.arme, o.x, 1.2, o.z);
+      } else if (item.type === "ennemi") {
+        this._creerMonstre(o.x, o.z);
+      } else if (item.type === "soin") {
+        this._ajouterSoin(o.x, o.z);
+      } else if (item.type === "vehicule") {
+        const base = (window.GAME_DATA.vehicules || []).find(v => v.id === item.vehicule);
+        if (base) this._ajouterVehicule(Object.assign({}, base, { x: o.x, z: o.z, ry: o.ry || 0 }));
+      } else {
+        this._placerDecor({
+          fichier: item.fichier, piece: item.piece,
+          x: o.x, z: o.z, ry: o.ry || 0,
+          taille: o.taille || item.taille,
+          axe: item.axe, collision: item.collision
+        });
+      }
+    });
+  },
+
   // ============================================================
   //  MONSTRE  —  le Grognon
   // ============================================================
-  _creerMonstre() {
-    const g = new THREE.Group();
-    const P = window.Perso;
-    const corps = P._ovale(0.85, 0.8, 0.75, 0x845EC2);
-    corps.position.y = 0.8;
-    const ventre = P._ovale(0.55, 0.5, 0.3, 0xB9A5DE);
-    ventre.position.set(0, 0.7, 0.5);
-    ventre.userData.sansContour = true;
-    const oeilG = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 12),
-      new THREE.MeshStandardMaterial({ color: 0xEF6461, emissive: 0xEF6461, emissiveIntensity: 0.7 }));
-    oeilG.position.set(-0.32, 1.1, 0.62);
-    oeilG.userData.sansContour = true;
-    const oeilD = oeilG.clone(); oeilD.position.x = 0.32;
-    const sourcilG = P._ovale(0.18, 0.04, 0.05, 0x1a1c2e);
-    sourcilG.position.set(-0.32, 1.28, 0.66); sourcilG.rotation.z = -0.4;
-    sourcilG.userData.sansContour = true;
-    const sourcilD = P._ovale(0.18, 0.04, 0.05, 0x1a1c2e);
-    sourcilD.position.set(0.32, 1.28, 0.66); sourcilD.rotation.z = 0.4;
-    sourcilD.userData.sansContour = true;
-    const corneG = P._ovale(0.12, 0.28, 0.12, 0xFDF6E3);
-    corneG.position.set(-0.45, 1.62, 0); corneG.rotation.z = 0.4;
-    const corneD = P._ovale(0.12, 0.28, 0.12, 0xFDF6E3);
-    corneD.position.set(0.45, 1.62, 0); corneD.rotation.z = -0.4;
-    [-1, 1].forEach(c => {
-      const patte = P._ovale(0.2, 0.18, 0.24, 0x6B4BA3);
-      patte.position.set(0.4 * c, 0.15, 0.1);
-      g.add(patte);
-    });
-    [-0.15, 0.15].forEach(x => {
-      const dent = P._ovale(0.05, 0.09, 0.04, 0xFFFFFF);
-      dent.position.set(x, 0.52, 0.68);
-      g.add(dent);
-    });
-    g.add(corps, ventre, oeilG, oeilD, sourcilG, sourcilD, corneG, corneD);
-
-    const pv = [];
-    for (let i = 0; i < 3; i++) {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, 0.1),
-        new THREE.MeshStandardMaterial({ color: 0x7CFC9A, emissive: 0x2E7D53, emissiveIntensity: 0.5 }));
-      b.position.set((i - 1) * 0.45, 2.1, 0);
-      b.userData.sansContour = true;
-      g.add(b); pv.push(b);
-    }
-
-    P._appliquerContours(g, 1.05);
-    g.position.set(-20, 0, -16);
-    this.scene.add(g);
-    this.monstre = {
-      mesh: g, corps: corps, blocsPV: pv,
+  _creerMonstre(x, z) {
+    const fab = window.Perso.construireGrognon();
+    fab.groupe.position.set(x, 0, z);
+    this.scene.add(fab.groupe);
+    this.monstres.push({
+      mesh: fab.groupe, corps: fab.corps, blocsPV: fab.blocsPV,
       pv: 3, pvMax: 3,
-      maison: new THREE.Vector3(-20, 0, -16),
+      maison: new THREE.Vector3(x, 0, z),
       mort: false, tempsRespawn: 0, tempsFlash: 0
-    };
+    });
   },
 
   _frapperMonstre(degats, portee) {
-    const mo = this.monstre;
-    if (!mo || mo.mort) return;
-    const d = this.avatar.position.distanceTo(mo.mesh.position);
-    if (d > (portee || 3.2)) return;
-    this._degatsMonstre(degats || 1);
-    const recul = mo.mesh.position.clone().sub(this.avatar.position).setY(0).normalize();
-    mo.mesh.position.addScaledVector(recul, 0.8);
+    this.monstres.forEach(mo => {
+      if (mo.mort) return;
+      const d = this.avatar.position.distanceTo(mo.mesh.position);
+      if (d > (portee || 3.2)) return;
+      this._degatsMonstre(mo, degats || 1);
+      const recul = mo.mesh.position.clone().sub(this.avatar.position).setY(0).normalize();
+      mo.mesh.position.addScaledVector(recul, 0.8);
+    });
   },
 
-  _degatsMonstre(n) {
-    const mo = this.monstre;
+  _degatsMonstre(mo, n) {
     if (!mo || mo.mort) return;
     mo.pv -= n;
     mo.tempsFlash = 0.18;
@@ -979,9 +979,11 @@ window.Jeu = {
     }
   },
 
-  _majMonstre(dt) {
-    const mo = this.monstre;
-    if (!mo) return;
+  _majMonstres(dt) {
+    this.monstres.forEach(mo => this._majUnMonstre(mo, dt));
+  },
+
+  _majUnMonstre(mo, dt) {
     if (mo.tempsFlash > 0) {
       mo.tempsFlash -= dt;
       if (mo.tempsFlash <= 0) mo.corps.material.color.set(0x845EC2);
@@ -1124,7 +1126,7 @@ window.Jeu = {
     if (this.scene) {
       while (this.scene.children.length) this.scene.remove(this.scene.children[0]);
     }
-    this.avatar = null; this.compagnon = null; this.monstre = null;
+    this.avatar = null; this.compagnon = null; this.monstres = [];
     this.colliders = []; this.objetsSol = []; this.projectiles = [];
     this.grenades = []; this.explosions = []; this.vehicules = [];
     this.soins = []; this.enVehicule = null;

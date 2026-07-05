@@ -46,7 +46,7 @@ window.Portraits = {
         mixer.update(0.6);
       }
       // cadrage : centre + zoom pour remplir la vignette
-      const boite = new THREE.Box3().setFromObject(objet);
+      const boite = window.Modeles.boiteReelle(objet);
       const dims = new THREE.Vector3(); boite.getSize(dims);
       const centre = new THREE.Vector3(); boite.getCenter(centre);
       objet.position.sub(centre);
@@ -69,7 +69,11 @@ window.Portraits = {
       if (typeof THREE.GLTFLoader !== "function") { this._fin(job); return; }
       new THREE.GLTFLoader().load(
         job.source.fichier,
-        (gltf) => rendre(gltf.scene, gltf.animations),
+        (gltf) => {
+          let objet = gltf.scene;
+          if (job.source.piece) objet = window.Modeles.extrairePiece(objet, job.source.piece);
+          rendre(objet, job.source.piece ? null : gltf.animations);
+        },
         undefined,
         () => this._fin(job)
       );
