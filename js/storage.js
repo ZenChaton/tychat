@@ -1,30 +1,43 @@
 /* ============================================================
-   SAUVEGARDE  —  garde en mémoire les choix du joueur
-   (skin, compagnon, réglages) même après avoir fermé la page.
-   On protège tout dans des try/catch au cas où le navigateur
-   bloque la sauvegarde : le jeu marche quand même.
+   SAUVEGARDE  —  mémoire du navigateur (préfixe cubcha:
+   pour ne pas mélanger avec TyCha sur le même domaine)
    ============================================================ */
 
 window.Sauvegarde = {
-  _prefixe: "monjeu_",
-  _repli: {},   // mémoire de secours si localStorage indisponible
-
-  lire(cle, valeurParDefaut) {
+  PREFIXE: "cubcha:",
+  _memoire: {},
+  _dispo: (function () {
     try {
-      const brut = localStorage.getItem(this._prefixe + cle);
-      if (brut === null) return valeurParDefaut;
+      localStorage.setItem("cubcha:test", "1");
+      localStorage.removeItem("cubcha:test");
+      return true;
+    } catch (e) { return false; }
+  })(),
+
+  lire(cle, defaut) {
+    try {
+      const brut = this._dispo
+        ? localStorage.getItem(this.PREFIXE + cle)
+        : this._memoire[cle];
+      if (brut === null || brut === undefined) return defaut;
       return JSON.parse(brut);
-    } catch (e) {
-      return (cle in this._repli) ? this._repli[cle] : valeurParDefaut;
-    }
+    } catch (e) { return defaut; }
   },
 
   ecrire(cle, valeur) {
-    this._repli[cle] = valeur;
     try {
-      localStorage.setItem(this._prefixe + cle, JSON.stringify(valeur));
+      const brut = JSON.stringify(valeur);
+      if (this._dispo) localStorage.setItem(this.PREFIXE + cle, brut);
+      else this._memoire[cle] = brut;
+      return true;
     } catch (e) {
-      /* pas grave : on garde au moins en mémoire pour la session */
+      console.warn("Sauvegarde impossible (espace plein ?)", e);
+      return false;
     }
+  },
+
+  effacer(cle) {
+    if (this._dispo) localStorage.removeItem(this.PREFIXE + cle);
+    else delete this._memoire[cle];
   }
 };

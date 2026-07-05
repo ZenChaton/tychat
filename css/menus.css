@@ -1,540 +1,209 @@
 /* ============================================================
-   STYLE DES MENUS  —  cartes, grilles, aperçu, réglages,
-   personnalisation, touches, inventaire
+   MENUS DE CUBCHA  —  panneaux, cartes, personnage, blocs, HUD
    ============================================================ */
 
-/* ---- Panneau semi-transparent qui contient un menu ---- */
 .panneau {
-  background: rgba(43, 8, 11, 0.85);
-  border: 4px solid rgba(253, 246, 227, 0.22);
-  border-radius: var(--r-grand);
-  padding: 28px;
-  width: min(960px, 94vw);
-  max-height: 84vh;
+  width: min(920px, 94vw);
+  max-height: 88vh;
   overflow-y: auto;
-  box-shadow: 0 20px 50px var(--ombre);
-  backdrop-filter: blur(4px);
+  background: rgba(20, 5, 8, 0.72);
+  border: 2px solid rgba(255, 209, 102, 0.25);
+  border-radius: 22px;
+  padding: 28px 26px 26px;
+  backdrop-filter: blur(3px);
 }
 
-/* ---- Grilles de cartes ---- */
-.grille {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 16px;
-  margin-top: 8px;
-}
-.grille.mini {
-  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
-  gap: 10px;
-}
-
-.carte {
-  background: var(--sombre-2);
-  border: 4px solid transparent;
-  border-radius: var(--r-moyen);
-  padding: 14px;
-  cursor: pointer;
-  text-align: center;
-  transition: transform 0.1s ease, border-color 0.15s ease, background 0.15s ease;
-}
-.carte:hover { transform: translateY(-4px); background: #742630; }
-.carte:focus-visible { outline: 4px solid var(--jaune); outline-offset: 2px; }
-.carte.choisie { border-color: var(--jaune); background: #742630; }
-.carte.mini { padding: 8px; border-width: 3px; }
-
-.pastille {
-  width: 100%;
-  height: 84px;
-  border-radius: 12px;
-  margin-bottom: 10px;
-  display: flex;
-  overflow: hidden;
-}
-.pastille.petite { height: 36px; margin-bottom: 6px; border-radius: 8px; }
-.pastille span { flex: 1; }
-
-.carte .nom {
-  font-family: "Fredoka", sans-serif;
-  font-weight: 500;
-  font-size: 18px;
-  color: var(--creme);
-}
-.carte.mini .nom { font-size: 14px; }
-.carte .desc {
-  font-size: 13px;
-  color: var(--creme);
-  opacity: 0.75;
-  margin-top: 4px;
-}
-.carte .badge {
-  display: inline-block;
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  background: var(--corail);
-  color: var(--creme);
-  padding: 3px 10px;
-  border-radius: 999px;
-}
-.carte.indispo { opacity: 0.55; cursor: not-allowed; }
-.carte.indispo:hover { transform: none; }
-
-/* ============================================================
-   Deux colonnes : aperçu 3D à gauche, options à droite
-   ============================================================ */
-.deux-colonnes {
-  display: flex;
-  gap: 24px;
-  align-items: stretch;
-}
-.colonne-apercu {
-  flex: 0 0 300px;
-  background: rgba(15, 3, 5, 0.45);
-  border-radius: var(--r-moyen);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 380px;
-  overflow: hidden;
-  position: sticky;
-  top: 0;
-  align-self: flex-start;
-}
-.colonne-apercu canvas { width: 100%; height: 100%; display: block; }
-.colonne-cartes { flex: 1; min-width: 0; }
-
-@media (max-width: 720px) {
-  .deux-colonnes { flex-direction: column; }
-  .colonne-apercu { flex: 0 0 240px; min-height: 240px; position: static; width: 100%; }
-}
-
-/* ============================================================
-   PERSONNALISATION  —  sections, palettes de couleurs
-   ============================================================ */
-.section-perso { margin-bottom: 22px; }
-.titre-section {
-  font-family: "Fredoka", sans-serif;
-  font-weight: 600;
-  font-size: 20px;
-  color: var(--jaune);
-  margin-bottom: 10px;
-}
-.aide-section {
-  display: block;
-  font-family: "Nunito", sans-serif;
-  font-weight: 400;
-  font-size: 13px;
-  color: var(--creme);
-  opacity: 0.7;
-  margin-top: 2px;
-}
-
-.rangee-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-}
-.swatch {
-  width: 34px; height: 34px;
-  border-radius: 50%;
-  border: 3px solid rgba(253,246,227,0.35);
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.1s ease, border-color 0.15s ease;
-}
-.swatch:hover { transform: scale(1.12); }
-.swatch.choisie { border-color: var(--jaune); box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.4); }
-.swatch:focus-visible { outline: 3px solid var(--jaune); outline-offset: 2px; }
-
-.swatch-libre {
-  width: 44px; height: 34px;
-  border: 3px dashed rgba(253,246,227,0.5);
-  border-radius: 10px;
-  background: transparent;
-  cursor: pointer;
-  padding: 2px;
-}
-
-/* ============================================================
-   RÉGLAGES  —  lignes label + contrôle
-   ============================================================ */
-.ligne-reglage {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 4px;
-  border-bottom: 2px solid rgba(253, 246, 227, 0.12);
-}
-
-.ligne-reglage .label {
-  font-family: "Fredoka", sans-serif;
-  font-weight: 500;
-  font-size: 18px;
-}
-.ligne-reglage .aide {
-  display: block;
-  font-family: "Nunito", sans-serif;
-  font-weight: 400;
-  font-size: 13px;
-  opacity: 0.7;
-  margin-top: 2px;
-}
-.ligne-reglage .controle {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 0 0 auto;
-}
-
-input[type="range"] {
-  width: 200px;
-  accent-color: var(--jaune);
-  cursor: pointer;
-}
-.valeur {
-  font-family: "Fredoka", sans-serif;
-  min-width: 56px;
-  text-align: right;
-  font-size: 18px;
-  color: var(--jaune);
-}
-
-/* Interrupteur oui/non */
-.switch { position: relative; width: 60px; height: 32px; flex: 0 0 auto; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.switch .piste {
-  position: absolute; inset: 0;
-  background: #1a0507; border-radius: 999px;
-  transition: background 0.15s ease; cursor: pointer;
-}
-.switch .piste::before {
-  content: ""; position: absolute;
-  width: 24px; height: 24px; left: 4px; top: 4px;
-  background: var(--creme); border-radius: 50%;
-  transition: transform 0.15s ease;
-}
-.switch input:checked + .piste { background: var(--menthe); }
-.switch input:checked + .piste::before { transform: translateX(28px); }
-.switch input:focus-visible + .piste { outline: 3px solid var(--jaune); outline-offset: 2px; }
-
-/* ============================================================
-   TOUCHES  —  cases cliquables pour changer les touches
-   ============================================================ */
-.grille-touches {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
-}
-.touche-case {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background: var(--sombre-2);
-  border: 3px solid transparent;
-  border-radius: 12px;
-  padding: 12px 14px;
-  cursor: pointer;
-  font-family: "Fredoka", sans-serif;
-  color: var(--creme);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-.touche-case:hover { background: #742630; }
-.touche-case:focus-visible { outline: 3px solid var(--jaune); outline-offset: 2px; }
-.touche-case .action { font-size: 15px; font-weight: 500; text-align: left; }
-.touche-case kbd {
-  font-family: "Fredoka", sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  background: var(--fond-bas);
-  color: var(--jaune);
-  border: 2px solid rgba(255, 209, 102, 0.4);
-  border-radius: 8px;
-  padding: 4px 10px;
-  min-width: 44px;
-  text-align: center;
-}
-.touche-case.attente {
-  border-color: var(--menthe);
-  animation: clignote 0.8s ease-in-out infinite;
-}
-.touche-case.attente kbd { color: var(--menthe); border-color: var(--menthe); }
-@keyframes clignote { 50% { background: #35545c; } }
-
-/* ============================================================
-   EN JEU  —  canvas plein écran + interface
-   ============================================================ */
-#ecran-jeu { padding: 0; }
-#canvas-jeu { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-
-.hud {
-  position: absolute;
-  top: 16px; left: 16px;
-  z-index: 5;
-  display: flex; gap: 10px;
-}
-
-/* ---- Barre d'inventaire : 6 cases en bas ---- */
-#barre-inventaire {
-  position: absolute;
-  bottom: 64px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  display: flex;
-  gap: 8px;
-}
-.case-inv {
-  position: relative;
-  width: 58px; height: 58px;
-  background: rgba(15, 3, 5, 0.65);
-  border: 3px solid rgba(253, 246, 227, 0.35);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: border-color 0.12s ease, transform 0.12s ease;
-}
-.case-inv:hover { transform: translateY(-3px); }
-.case-inv.active {
-  border-color: var(--jaune);
-  box-shadow: 0 0 12px rgba(255, 209, 102, 0.55);
-}
-.case-inv .icone { font-size: 28px; line-height: 1; }
-.case-inv .num {
-  position: absolute;
-  top: 2px; left: 5px;
-  font-family: "Fredoka", sans-serif;
-  font-size: 11px;
-  color: var(--creme);
-  opacity: 0.7;
-}
-
-/* ---- Aide contextuelle (ramasser) ---- */
-#astuce-contexte {
-  position: absolute;
-  bottom: 136px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  display: none;
-  background: rgba(255, 209, 102, 0.92);
-  color: var(--sombre);
-  font-family: "Fredoka", sans-serif;
-  font-weight: 600;
-  font-size: 16px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  pointer-events: none;
-}
-
-.astuce-jeu {
-  position: absolute;
-  bottom: 20px; left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  background: rgba(15, 3, 5, 0.6);
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-family: "Fredoka", sans-serif;
-  font-size: 14px;
-  text-align: center;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-#chargement {
-  position: absolute; inset: 0; z-index: 10;
-  display: flex; align-items: center; justify-content: center;
-  flex-direction: column; gap: 18px;
-  background: var(--fond-bas);
-}
-#chargement .rond {
-  width: 54px; height: 54px;
-  border: 6px solid rgba(253,246,227,0.25);
-  border-top-color: var(--jaune);
-  border-radius: 50%;
-  animation: tourne 0.9s linear infinite;
-}
-@keyframes tourne { to { transform: rotate(360deg); } }
-
-/* ============================================================
-   PORTRAITS 3D dans les cartes (personnages & compagnons)
-   ============================================================ */
-.grille.portraits {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  max-width: 860px;
-  margin: 0 auto;
-}
-.carte .portrait {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 14px;
-  margin-bottom: 10px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid rgba(255, 209, 102, 0.18);
-}
-.carte .portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  image-rendering: auto;
-}
-.carte.choisie .portrait {
-  border-color: var(--jaune);
-}
 .sous-titre-ecran {
   text-align: center;
   color: rgba(253, 246, 227, 0.75);
-  margin: -6px 0 18px;
+  margin: -8px 0 18px;
   font-size: 0.95rem;
 }
 
-/* ============================================================
-   CŒURS DE VIE + FLASH DE DÉGÂTS
-   ============================================================ */
-#coeurs {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  left: auto;
-  z-index: 30;
-  font-size: 30px;
-  letter-spacing: 4px;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
-  user-select: none;
+/* ---------- grille de cartes ---------- */
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
 }
-#coeurs .plein { color: #FF5C6C; }
-#coeurs .vide  { color: rgba(255, 255, 255, 0.22); }
-
-#degats-flash {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(circle, rgba(255,40,40,0) 40%, rgba(255, 30, 30, 0.55) 100%);
-  opacity: 0;
-  transition: opacity 0.18s ease;
-  pointer-events: none;
-  z-index: 40;
+.carte {
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
 }
-#degats-flash.actif { opacity: 1; }
-
-
-/* ============================================================
-   ÉDITEUR DE MONDES
-   ============================================================ */
-#ecran-editeur { padding: 0; }
-#canvas-editeur { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-
-#editeur-haut {
-  position: fixed; top: 12px; left: 12px; right: 300px;
-  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-  z-index: 20;
+.carte:hover { transform: translateY(-3px); border-color: rgba(255, 209, 102, 0.55); }
+.carte .nom  { color: var(--creme); font-weight: 700; font-size: 1.02rem; margin: 6px 0 2px; }
+.carte .desc { color: rgba(253, 246, 227, 0.65); font-size: 0.82rem; }
+.carte .pastille {
+  display: flex; height: 52px; border-radius: 10px; overflow: hidden;
+  border: 2px solid rgba(0, 0, 0, 0.25);
 }
-#editeur-nom {
-  flex: 1; min-width: 140px; max-width: 300px;
-  padding: 10px 14px; border-radius: 12px;
-  border: 2px solid rgba(255, 209, 102, 0.4);
-  background: rgba(20, 5, 8, 0.75); color: var(--creme);
-  font-family: inherit; font-size: 1rem; font-weight: 700;
+.carte .pastille span { flex: 1; }
+.carte.creer-monde {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 120px; color: var(--creme);
+  font-size: 1.05rem; font-weight: 800;
+  border-style: dashed; border-color: rgba(255, 209, 102, 0.45);
 }
-.ed-couleur {
-  display: flex; align-items: center; gap: 6px;
-  background: rgba(20, 5, 8, 0.75); padding: 6px 10px;
-  border-radius: 12px; color: var(--creme); font-weight: 700; font-size: 0.9rem;
-}
-.ed-couleur input { width: 34px; height: 26px; border: none; background: none; cursor: pointer; }
-
-#editeur-palette {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 280px;
-  background: rgba(18, 4, 7, 0.92);
-  border-left: 2px solid rgba(255, 209, 102, 0.25);
-  display: flex; flex-direction: column; z-index: 20;
-}
-#editeur-categories {
-  display: flex; flex-wrap: wrap; gap: 6px; padding: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-.cat-btn {
-  border: none; border-radius: 10px; padding: 7px 10px;
-  background: rgba(255, 255, 255, 0.08); color: var(--creme);
-  font-family: inherit; font-weight: 700; font-size: 0.8rem; cursor: pointer;
-}
-.cat-btn.actif { background: var(--jaune); color: #4A1319; }
-#editeur-items {
-  flex: 1; overflow-y: auto; padding: 12px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  align-content: start;
-}
-.item-editeur {
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid transparent; border-radius: 12px;
-  padding: 8px; cursor: pointer; text-align: center;
-}
-.item-editeur:hover { border-color: rgba(255, 209, 102, 0.5); }
-.item-editeur.actif { border-color: var(--jaune); background: rgba(255, 209, 102, 0.12); }
-.item-editeur .vignette {
-  width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden;
-  background: radial-gradient(circle at 50% 35%, #4a1219, #22060a);
-  margin-bottom: 6px;
-}
-.item-editeur .vignette img { width: 100%; height: 100%; object-fit: cover; }
-.item-editeur .nom-item { color: var(--creme); font-size: 0.78rem; font-weight: 700; }
-
-#editeur-outils, #editeur-stop {
-  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-  display: none; gap: 10px; z-index: 20;
-}
-.btn-outil {
-  border: none; border-radius: 14px; padding: 12px 16px;
-  background: rgba(20, 5, 8, 0.85); color: var(--creme);
-  border: 2px solid rgba(255, 209, 102, 0.4);
-  font-family: inherit; font-size: 1.15rem; font-weight: 800; cursor: pointer;
-}
-.btn-outil:hover { background: rgba(255, 209, 102, 0.2); }
-.btn-outil.danger { border-color: rgba(239, 100, 97, 0.6); }
-
-#editeur-aide {
-  position: fixed; top: 68px; left: 12px; z-index: 20;
-  background: rgba(20, 5, 8, 0.75); color: var(--creme);
-  padding: 8px 14px; border-radius: 12px; font-size: 0.9rem; font-weight: 700;
-  max-width: 460px;
-}
-
-/* cartes des mondes créés */
-.carte .actions-monde {
-  display: flex; gap: 8px; justify-content: center; margin-top: 8px;
-}
-.carte .actions-monde button {
+.actions-monde { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+.actions-monde button {
   border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer;
   font-family: inherit; font-weight: 700; font-size: 0.8rem;
   background: rgba(255, 255, 255, 0.12); color: var(--creme);
 }
-.carte .actions-monde button:hover { background: rgba(255, 209, 102, 0.3); }
-.carte.creer-monde {
-  display: flex; align-items: center; justify-content: center;
-  min-height: 140px; font-size: 1.05rem; font-weight: 800;
-  border-style: dashed;
+.actions-monde button:hover { background: rgba(255, 209, 102, 0.3); }
+
+/* ---------- formulaire de création de monde ---------- */
+.form-monde {
+  display: none; flex-wrap: wrap; gap: 10px; align-items: center;
+  background: rgba(255, 255, 255, 0.06); border-radius: 14px;
+  padding: 14px; margin-bottom: 16px;
+}
+.form-monde input[type="text"], .form-bloc input[type="text"] {
+  flex: 1; min-width: 150px; padding: 10px 14px; border-radius: 10px;
+  border: 2px solid rgba(255, 209, 102, 0.4);
+  background: rgba(20, 5, 8, 0.7); color: var(--creme);
+  font-family: inherit; font-size: 0.95rem; font-weight: 700;
+}
+.form-monde label {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--creme); font-weight: 700; font-size: 0.9rem;
+}
+.form-monde input[type="color"] { width: 38px; height: 30px; border: none; background: none; cursor: pointer; }
+
+/* ---------- écran personnage ---------- */
+.deux-colonnes-perso {
+  display: flex; gap: 26px; align-items: flex-start; justify-content: center;
+  flex-wrap: wrap; margin-bottom: 16px;
+}
+#canvas-perso {
+  background: radial-gradient(circle at 50% 30%, #4a1219, #22060a);
+  border-radius: 18px;
+  border: 2px solid rgba(255, 209, 102, 0.25);
+}
+#zone-couleurs { flex: 1; min-width: 280px; max-width: 460px; }
+.panneau-partie { margin-bottom: 14px; }
+.panneau-partie h3 {
+  color: var(--creme); font-size: 1rem; margin-bottom: 8px;
+  font-weight: 700;
+}
+.rangee-couleurs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.puce {
+  width: 30px; height: 30px; border-radius: 9px;
+  border: 3px solid rgba(0, 0, 0, 0.35); cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.puce:hover { transform: scale(1.15); }
+.puce.choisie { border-color: var(--jaune); box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.5); }
+.puce-libre { width: 38px; height: 32px; border: none; background: none; cursor: pointer; }
+
+/* ---------- écran blocs ---------- */
+.form-bloc {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  background: rgba(255, 255, 255, 0.06); border-radius: 14px;
+  padding: 14px; margin-bottom: 18px;
+}
+.form-bloc input[type="file"] { color: var(--creme); font-size: 0.85rem; max-width: 230px; }
+#bloc-message { color: var(--jaune); font-weight: 700; font-size: 0.88rem; }
+.carte-bloc { cursor: default; }
+.carte-bloc:hover { transform: none; }
+.carte .portrait {
+  width: 84px; height: 84px; margin: 0 auto;
+  border-radius: 12px; overflow: hidden;
+  border: 2px solid rgba(255, 209, 102, 0.2);
+  background: #22060a;
+}
+.carte .portrait img {
+  width: 100%; height: 100%; object-fit: cover;
+  image-rendering: pixelated;
 }
 
+/* ---------- réglages ---------- */
+.ligne-reglage { margin-bottom: 16px; color: var(--creme); }
+.ligne-reglage label { display: block; font-weight: 700; margin-bottom: 6px; }
+.ligne-reglage input[type="range"] { width: 100%; accent-color: var(--jaune); }
+.ligne-reglage input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--jaune); margin-right: 8px; vertical-align: -4px; }
+.titre-section {
+  color: var(--creme); font-size: 1.15rem; font-weight: 700;
+  margin: 22px 0 10px; border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 18px;
+}
+.rangee-presets { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.ligne-touche {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 4px; color: var(--creme); font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.case-touche {
+  min-width: 84px; padding: 8px 14px; border-radius: 10px;
+  border: 2px solid rgba(255, 209, 102, 0.4);
+  background: rgba(255, 255, 255, 0.08); color: var(--creme);
+  font-family: inherit; font-weight: 800; cursor: pointer;
+}
+.case-touche:hover { border-color: var(--jaune); }
+.case-touche.attente { background: var(--jaune); color: #4A1319; animation: clignote 0.8s infinite; }
+@keyframes clignote { 50% { opacity: 0.55; } }
 
-/* viseur de la vue première personne */
+/* ---------- en jeu ---------- */
+#ecran-jeu { padding: 0; }
+#canvas-jeu { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hud { position: fixed; top: 16px; left: 16px; z-index: 20; }
+
 #viseur {
   position: fixed; top: 50%; left: 50%;
   width: 10px; height: 10px; margin: -5px 0 0 -5px;
   border: 2px solid rgba(255, 255, 255, 0.9);
   border-radius: 50%;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
-  pointer-events: none; z-index: 25;
-  display: none;
+  pointer-events: none; z-index: 25; display: none;
 }
 #viseur::after {
   content: ""; position: absolute; top: 50%; left: 50%;
   width: 2px; height: 2px; margin: -1px 0 0 -1px;
   background: #FFD166; border-radius: 50%;
+}
+
+#barre-blocs {
+  position: fixed; bottom: 46px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 6px; padding: 8px;
+  background: rgba(18, 4, 7, 0.78);
+  border: 2px solid rgba(255, 209, 102, 0.3);
+  border-radius: 14px; z-index: 20;
+  max-width: 92vw; overflow-x: auto;
+}
+.case-bloc {
+  position: relative; width: 48px; height: 48px; flex: 0 0 48px;
+  border-radius: 9px; overflow: hidden; cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+}
+.case-bloc img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.case-bloc.active { border-color: var(--jaune); box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.55); }
+.case-bloc .num {
+  position: absolute; top: 1px; left: 4px;
+  color: #fff; font-size: 0.68rem; font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+#nom-bloc {
+  position: fixed; bottom: 112px; left: 50%; transform: translateX(-50%);
+  color: var(--creme); font-weight: 800; font-size: 0.95rem;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.7); z-index: 20;
+}
+
+.astuce-jeu {
+  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+  color: rgba(253, 246, 227, 0.85); font-size: 0.82rem; font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); z-index: 20;
+  white-space: nowrap;
+}
+
+/* fond animé du menu */
+#canvas-fond {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
 }

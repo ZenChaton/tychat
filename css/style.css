@@ -58,7 +58,7 @@ html, body {
 }
 .ecran.actif { display: flex; opacity: 1; }
 
-/* ---- Titre du jeu : TyCha en Luckiest Guy ---- */
+/* ---- Titre du jeu : CubCha en Luckiest Guy ---- */
 .titre-jeu {
   font-family: "Luckiest Guy", "Fredoka", sans-serif;
   font-weight: 400;

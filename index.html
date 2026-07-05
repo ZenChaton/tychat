@@ -1,169 +1,109 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TyCha</title>
-
-  <!-- Polices : Luckiest Guy pour le titre (fun !), Fredoka + Nunito pour le reste -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CubCha — le jeu de cubes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="css/style.css" />
-  <link rel="stylesheet" href="css/menus.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/menus.css">
 </head>
 <body>
 
-  <!-- Fond : dégradé rouge sombre + manettes qui flottent -->
-  <div id="fond-blocs"><canvas id="canvas-fond"></canvas></div>
+  <canvas id="canvas-fond"></canvas>
 
   <div id="app">
-
-    <!-- ========== MENU PRINCIPAL ========== -->
-    <section id="ecran-titre" class="ecran">
-      <h1 class="titre-jeu">Ty<span class="accent">Cha</span></h1>
-      <p class="sous-titre">Un bac à sable à construire en famille</p>
-      <div class="colonne-boutons">
-        <button id="btn-jouer" class="btn principal">▶  Jouer</button>
+    <!-- ========== TITRE ========== -->
+    <section id="ecran-titre" class="ecran actif">
+      <h1 class="titre-jeu">Cub<span class="accent">Cha</span></h1>
+      <p class="sous-titre">Construis ton monde, cube par cube !</p>
+      <nav class="colonne-boutons">
+        <button id="btn-jouer" class="btn principal">▶ Jouer</button>
         <button id="btn-perso" class="btn">🧍 Personnage</button>
-        <button id="btn-compagnon" class="btn">🤖 Compagnon</button>
+        <button id="btn-blocs" class="btn">🧱 Mes blocs</button>
         <button id="btn-reglages" class="btn">⚙️ Paramètres</button>
-      </div>
+      </nav>
     </section>
 
-    <!-- ========== CHOIX DU SERVEUR ========== -->
+    <!-- ========== SERVEURS ========== -->
     <section id="ecran-serveurs" class="ecran">
-      <button class="btn btn-retour">← Retour</button>
       <div class="panneau">
         <h2 class="titre-ecran">Choisis un monde</h2>
+        <p class="sous-titre-ecran">Chaque monde garde tes constructions !</p>
         <div id="grille-serveurs" class="grille"></div>
+        <div id="form-monde" class="form-monde">
+          <input id="monde-nom" type="text" maxlength="24" placeholder="Nom du monde…">
+          <label>Ciel <input type="color" id="monde-ciel" value="#87CEEB"></label>
+          <label>Sol <input type="color" id="monde-sol" value="#7CB342"></label>
+          <button id="btn-monde-creer" class="btn principal">Créer</button>
+          <button id="btn-monde-annuler" class="btn">Annuler</button>
+        </div>
+        <button class="btn btn-retour">← Retour</button>
       </div>
     </section>
 
-    <!-- ========== PERSONNAGE (peau, cheveux, tenue, accessoires) ========== -->
+    <!-- ========== PERSONNAGE ========== -->
     <section id="ecran-perso" class="ecran">
-      <button class="btn btn-retour">← Retour</button>
       <div class="panneau">
         <h2 class="titre-ecran">Ton personnage</h2>
-        <p class="sous-titre-ecran">De vrais modèles 3D animés : marche, course, coups d'épée et tir !</p>
-        <div id="grille-perso" class="grille portraits"></div>
+        <div class="deux-colonnes-perso">
+          <canvas id="canvas-perso" width="240" height="300"></canvas>
+          <div id="zone-couleurs"></div>
+        </div>
+        <button class="btn btn-retour">← Retour</button>
       </div>
     </section>
 
-    <!-- ========== COMPAGNON ========== -->
-    <section id="ecran-compagnons" class="ecran">
-      <button class="btn btn-retour">← Retour</button>
+    <!-- ========== BLOCS ========== -->
+    <section id="ecran-blocs" class="ecran">
       <div class="panneau">
-        <h2 class="titre-ecran">Choisis ton compagnon</h2>
-        <div id="grille-compagnons" class="grille portraits"></div>
+        <h2 class="titre-ecran">Mes blocs</h2>
+        <p class="sous-titre-ecran">Télécharge une image : elle s'appliquera sur les 6 faces d'un cube !</p>
+        <div class="form-bloc">
+          <input id="bloc-nom" type="text" maxlength="16" placeholder="Nom du bloc…">
+          <input id="bloc-fichier" type="file" accept="image/*">
+          <button id="btn-bloc-creer" class="btn principal">➕ Créer le bloc</button>
+          <span id="bloc-message"></span>
+        </div>
+        <div id="grille-blocs" class="grille"></div>
+        <button class="btn btn-retour">← Retour</button>
       </div>
     </section>
 
-    <!-- ========== PARAMÈTRES ========== -->
+    <!-- ========== RÉGLAGES ========== -->
     <section id="ecran-reglages" class="ecran">
-      <button class="btn btn-retour">← Retour</button>
       <div class="panneau">
         <h2 class="titre-ecran">Paramètres</h2>
 
         <div class="ligne-reglage">
-          <div class="label">Champ de vision (FOV)
-            <span class="aide">Plus c'est grand, plus on voit large.</span>
-          </div>
-          <div class="controle">
-            <input type="range" id="reg-fov" min="60" max="100" step="1" />
-            <span class="valeur" id="reg-fov-val">75</span>
-          </div>
+          <label>Champ de vision <b id="valeur-fov"></b></label>
+          <input id="reglage-fov" type="range" min="55" max="100" step="1">
         </div>
-
         <div class="ligne-reglage">
-          <div class="label">Sensibilité de la souris
-            <span class="aide">Vitesse de rotation de la caméra.</span>
-          </div>
-          <div class="controle">
-            <input type="range" id="reg-sens" min="10" max="100" step="1" />
-            <span class="valeur" id="reg-sens-val">50</span>
-          </div>
+          <label>Sensibilité souris <b id="valeur-sensibilite"></b></label>
+          <input id="reglage-sensibilite" type="range" min="10" max="100" step="1">
         </div>
-
         <div class="ligne-reglage">
-          <div class="label">Volume général
-            <span class="aide">Pour les sons du jeu (à ajouter plus tard).</span>
-          </div>
-          <div class="controle">
-            <input type="range" id="reg-volume" min="0" max="100" step="1" />
-            <span class="valeur" id="reg-volume-val">70</span>
-          </div>
+          <label>Distance d'affichage <b id="valeur-distance"></b></label>
+          <input id="reglage-distance" type="range" min="24" max="96" step="8">
         </div>
-
         <div class="ligne-reglage">
-          <div class="label">Inverser la souris (vertical)
-            <span class="aide">Pour ceux qui préfèrent l'ancien sens.</span>
-          </div>
-          <div class="controle">
-            <label class="switch">
-              <input type="checkbox" id="reg-inverser" />
-              <span class="piste"></span>
-            </label>
-          </div>
+          <label><input id="reglage-ombres" type="checkbox"> Ombres (plus joli, plus lourd)</label>
         </div>
-
         <div class="ligne-reglage">
-          <div class="label">Ombres
-            <span class="aide">Plus joli, mais désactive-les si le jeu rame.</span>
-          </div>
-          <div class="controle">
-            <label class="switch">
-              <input type="checkbox" id="reg-ombres" />
-              <span class="piste"></span>
-            </label>
-          </div>
+          <label><input id="reglage-invy" type="checkbox"> Inverser la souris (haut/bas)</label>
         </div>
 
-        <!-- ---- Touches ---- -->
-        <div class="section-perso">
-          <div class="titre-section">Touches
-            <span class="aide-section">Clique sur une case, puis presse la touche voulue (Échap pour annuler).</span>
-          </div>
-          <div id="grille-touches" class="grille-touches"></div>
-          <div class="ligne-boutons presets">
-            <button class="btn petit" data-preset="zqsd">ZQSD</button>
-            <button class="btn petit" data-preset="wasd">WASD</button>
-            <button class="btn petit" data-preset="fleches">Flèches</button>
-          </div>
+        <h3 class="titre-section">Touches</h3>
+        <div class="rangee-presets">
+          <button id="btn-preset-zqsd" class="btn petit">Clavier ZQSD</button>
+          <button id="btn-preset-fleches" class="btn petit">Flèches</button>
         </div>
+        <div id="zone-touches"></div>
 
+        <button class="btn btn-retour">← Retour</button>
       </div>
-    </section>
-
-    <!-- ========== ÉDITEUR DE MONDES ========== -->
-    <section id="ecran-editeur" class="ecran">
-      <canvas id="canvas-editeur"></canvas>
-      <div id="editeur-haut">
-        <button id="btn-editeur-retour" class="btn">← Retour</button>
-        <input id="editeur-nom" type="text" maxlength="24" placeholder="Nom du monde…">
-        <label class="ed-couleur">Ciel <input type="color" id="editeur-ciel" value="#87CEEB"></label>
-        <label class="ed-couleur">Sol <input type="color" id="editeur-sol" value="#7CB342"></label>
-        <button id="btn-editeur-sauver" class="btn jaune">💾 Sauvegarder</button>
-      </div>
-      <div id="editeur-palette">
-        <div id="editeur-categories"></div>
-        <div id="editeur-items"></div>
-      </div>
-      <div id="editeur-outils">
-        <button id="btn-ed-tourner" class="btn-outil" title="Tourner">⟳</button>
-        <button id="btn-ed-plus" class="btn-outil" title="Agrandir">＋</button>
-        <button id="btn-ed-moins" class="btn-outil" title="Réduire">－</button>
-        <button id="btn-ed-monter" class="btn-outil" title="Monter">⬆</button>
-        <button id="btn-ed-descendre" class="btn-outil" title="Descendre">⬇</button>
-        <button id="btn-ed-suppr" class="btn-outil danger" title="Supprimer">🗑</button>
-        <button id="btn-ed-fini" class="btn-outil" title="Terminé">✔</button>
-      </div>
-      <div id="editeur-stop">
-        <button id="btn-ed-stop" class="btn-outil" title="Arrêter de poser">✋ Arrêter de poser</button>
-      </div>
-      <div id="editeur-aide"></div>
-      <div class="astuce-jeu">Clic gauche : poser / sélectionner · Clic droit maintenu : tourner la caméra · Molette : zoom · ZQSD : se déplacer · R : rotation</div>
     </section>
 
     <!-- ========== EN JEU ========== -->
@@ -171,46 +111,20 @@
       <canvas id="canvas-jeu"></canvas>
       <div class="hud">
         <button id="btn-quitter" class="btn corail">⏻ Quitter</button>
-        <div id="coeurs"></div>
       </div>
-      <div id="degats-flash"></div>
       <div id="viseur"></div>
-
-      <!-- Inventaire : 6 cases en bas -->
-      <div id="barre-inventaire"></div>
-
-      <!-- Aide contextuelle (ex : "E : ramasser Épée") -->
-      <div id="astuce-contexte"></div>
-
-      <div class="astuce-jeu">Clic : attaquer / tirer · E : ramasser · F : véhicule · V : changer de vue · 1-6 : inventaire · Échap : libérer la souris</div>
-      <div id="chargement"><div class="rond"></div><div>Chargement du monde…</div></div>
+      <div id="nom-bloc"></div>
+      <div id="barre-blocs"></div>
+      <div class="astuce-jeu">Clic gauche : casser · Clic droit : poser · Molette / 1-9 : bloc · V : vue · Échap : souris</div>
     </section>
-
   </div>
 
-  <div class="credit">Fait maison en famille 💛</div>
-
-  <!-- Librairie 3D + chargeur de modèles .glb (pour les compagnons pro) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-
-  <!-- Données faciles à modifier -->
-  <script src="data/characters.js"></script>
-  <script src="data/weapons.js"></script>
-  <script src="data/companions.js"></script>
   <script src="data/servers.js"></script>
-  <script src="data/vehicles.js"></script>
-  <script src="data/decor.js"></script>
-  <script src="data/editor-catalog.js"></script>
-
-  <!-- Notre code -->
   <script src="js/storage.js"></script>
   <script src="js/settings.js"></script>
-  <script src="js/models3d.js"></script>
-  <script src="js/portraits.js"></script>
-  <script src="js/inventory.js"></script>
-  <script src="js/customization.js"></script>
-  <script src="js/editor.js"></script>
+  <script src="js/blocks.js"></script>
+  <script src="js/player.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
 </body>

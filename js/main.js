@@ -1,16 +1,12 @@
 /* ============================================================
-   MAIN  —  chef d'orchestre
-   Relie les menus, les données, les réglages et le jeu.
+   MENUS  —  navigation, serveurs, personnage, blocs, réglages
    ============================================================ */
 
 (function () {
-  "use strict";
-
+  const $ = (s) => document.querySelector(s);
   const D = window.GAME_DATA;
-  const $ = (sel) => document.querySelector(sel);
-
-  let choixPersonnage = null;   // entrée de D.personnages
-  let choixCompagnon = null;
+  let couleursPerso = null;
+  let apercu = null;   // petit rendu 3D du personnage
 
   // ============================================================
   //  NAVIGATION
@@ -18,478 +14,419 @@
   function montrerEcran(id) {
     document.querySelectorAll(".ecran").forEach(e => e.classList.remove("actif"));
     $("#" + id).classList.add("actif");
+    if (id === "ecran-perso") demarrerApercu(); else arreterApercu();
   }
 
-  // ============================================================
-  //  DÉMARRAGE
-  // ============================================================
   function init() {
     window.Reglages.charger();
-    window.Inventaire.charger();
+    window.Blocs.charger();
+    couleursPerso = window.Perso.charger();
 
-    // ---- Personnage sauvegardé (ou le premier de la liste) ----
-    const idPerso = window.Sauvegarde.lire("personnage", D.personnages[0].id);
-    choixPersonnage = D.personnages.find(p => p.id === idPerso) || D.personnages[0];
-
-    const idComp = window.Sauvegarde.lire("compagnon", D.companions[0].id);
-    choixCompagnon = D.companions.find(c => c.id === idComp) || D.companions[0];
-
-    fondAnime();
     brancherMenuPrincipal();
     remplirServeurs();
-    remplirPersonnages();
-    remplirCompagnons();
+    construirePanneauPerso();
+    remplirBlocs();
     brancherReglages();
     construireMenuTouches();
-    brancherJeu();
-
+    demarrerFond();
     montrerEcran("ecran-titre");
   }
 
-  // ============================================================
-  //  MENU PRINCIPAL
-  // ============================================================
   function brancherMenuPrincipal() {
-    $("#btn-jouer").onclick     = () => montrerEcran("ecran-serveurs");
-    $("#btn-perso").onclick     = () => montrerEcran("ecran-perso");
-    $("#btn-compagnon").onclick = () => montrerEcran("ecran-compagnons");
-    $("#btn-reglages").onclick  = () => montrerEcran("ecran-reglages");
-
+    $("#btn-jouer").onclick    = () => montrerEcran("ecran-serveurs");
+    $("#btn-perso").onclick    = () => montrerEcran("ecran-perso");
+    $("#btn-blocs").onclick    = () => montrerEcran("ecran-blocs");
+    $("#btn-reglages").onclick = () => montrerEcran("ecran-reglages");
     document.querySelectorAll(".btn-retour").forEach(b => {
       b.onclick = () => montrerEcran("ecran-titre");
     });
   }
 
   // ============================================================
-  //  SERVEURS
+  //  SERVEURS  (biomes + mondes créés)
   // ============================================================
   function remplirServeurs() {
     const grille = $("#grille-serveurs");
     grille.innerHTML = "";
-    D.servers.forEach(srv => {
-      const carte = document.createElement("div");
-      carte.className = "carte" + (srv.disponible ? "" : " indispo");
-      carte.tabIndex = srv.disponible ? 0 : -1;
 
-      const apercu = document.createElement("div");
-      apercu.className = "pastille";
-      apercu.innerHTML =
-        `<span style="background:${srv.couleurCiel}"></span>` +
-        `<span style="background:${srv.couleurSol}"></span>`;
-      carte.appendChild(apercu);
-
-      const nom = document.createElement("div");
-      nom.className = "nom"; nom.textContent = srv.nom;
-      carte.appendChild(nom);
-
-      const desc = document.createElement("div");
-      desc.className = "desc"; desc.textContent = srv.description;
-      carte.appendChild(desc);
-
-      if (!srv.disponible) {
-        const badge = document.createElement("div");
-        badge.className = "badge"; badge.textContent = "Bientôt";
-        carte.appendChild(badge);
-      } else {
-        const lancer = () => lancerJeu(srv);
-        carte.onclick = lancer;
-        carte.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); lancer(); } };
-      }
-      grille.appendChild(carte);
-    });
-
-    // ---- les mondes créés dans l'éditeur ----
-    const mondes = window.Sauvegarde.lire("mondes", []);
-    mondes.forEach(monde => {
+    const carteMonde = (serveur, perso) => {
       const carte = document.createElement("div");
       carte.className = "carte";
       carte.tabIndex = 0;
 
-      const apercu = document.createElement("div");
-      apercu.className = "pastille";
-      apercu.innerHTML =
-        `<span style="background:${monde.couleurCiel}"></span>` +
-        `<span style="background:${monde.couleurSol}"></span>`;
-      carte.appendChild(apercu);
+      const pastille = document.createElement("div");
+      pastille.className = "pastille";
+      pastille.innerHTML =
+        `<span style="background:${serveur.couleurCiel}"></span>` +
+        `<span style="background:${serveur.couleurSol}"></span>`;
+      carte.appendChild(pastille);
 
       const nom = document.createElement("div");
-      nom.className = "nom"; nom.textContent = monde.nom;
+      nom.className = "nom";
+      nom.textContent = (serveur.emoji ? serveur.emoji + " " : "") + serveur.nom;
       carte.appendChild(nom);
 
       const desc = document.createElement("div");
       desc.className = "desc";
-      desc.textContent = "Créé par toi · " + (monde.objets || []).length + " objets";
+      const nbCubes = (window.Sauvegarde.lire("monde-" + serveur.id, []) || []).length;
+      desc.textContent = (serveur.description || "Créé par toi") +
+        (nbCubes ? " · " + nbCubes + " blocs posés" : "");
       carte.appendChild(desc);
 
       const actions = document.createElement("div");
       actions.className = "actions-monde";
-      const btnModif = document.createElement("button");
-      btnModif.textContent = "✏️ Modifier";
-      btnModif.onclick = (e) => { e.stopPropagation(); ouvrirEditeur(monde); };
-      const btnSuppr = document.createElement("button");
-      btnSuppr.textContent = "🗑 Supprimer";
-      btnSuppr.onclick = (e) => {
+      const btnVider = document.createElement("button");
+      btnVider.textContent = "🧹 Vider";
+      btnVider.onclick = (e) => {
         e.stopPropagation();
-        if (confirm("Supprimer le monde « " + monde.nom + " » ?")) {
-          const liste = window.Sauvegarde.lire("mondes", []).filter(x => x.id !== monde.id);
-          window.Sauvegarde.ecrire("mondes", liste);
+        if (confirm("Casser TOUS les blocs de « " + serveur.nom + " » ?")) {
+          window.Sauvegarde.effacer("monde-" + serveur.id);
           remplirServeurs();
         }
       };
-      actions.appendChild(btnModif);
-      actions.appendChild(btnSuppr);
+      actions.appendChild(btnVider);
+      if (perso) {
+        const btnSuppr = document.createElement("button");
+        btnSuppr.textContent = "🗑 Supprimer";
+        btnSuppr.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm("Supprimer le monde « " + serveur.nom + " » ?")) {
+            const liste = window.Sauvegarde.lire("mondes", []).filter(x => x.id !== serveur.id);
+            window.Sauvegarde.ecrire("mondes", liste);
+            window.Sauvegarde.effacer("monde-" + serveur.id);
+            remplirServeurs();
+          }
+        };
+        actions.appendChild(btnSuppr);
+      }
       carte.appendChild(actions);
 
-      const lancer = () => lancerJeu({
-        nom: monde.nom,
-        couleurCiel: monde.couleurCiel,
-        couleurSol: monde.couleurSol,
-        objets: monde.objets || []
-      });
+      const lancer = () => lancerJeu(serveur);
       carte.onclick = lancer;
       carte.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); lancer(); } };
-      grille.appendChild(carte);
-    });
+      return carte;
+    };
 
-    // ---- la carte "Créer un monde" ----
+    D.serveurs.forEach(s => grille.appendChild(carteMonde(s, false)));
+    window.Sauvegarde.lire("mondes", []).forEach(m => grille.appendChild(carteMonde(m, true)));
+
+    // carte de création
     const creer = document.createElement("div");
     creer.className = "carte creer-monde";
     creer.tabIndex = 0;
-    creer.textContent = "➕ Créer un monde";
-    creer.onclick = () => ouvrirEditeur(null);
-    creer.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ouvrirEditeur(null); } };
+    creer.innerHTML = "➕ Créer un monde";
+    creer.onclick = () => $("#form-monde").style.display = "flex";
     grille.appendChild(creer);
-  }
 
-  // ============================================================
-  //  ÉDITEUR DE MONDES
-  // ============================================================
-  function ouvrirEditeur(monde) {
-    montrerEcran("ecran-editeur");
-    window.Editeur.ouvrir(monde, {
-      retour: () => montrerEcran("ecran-serveurs"),
-      sauver: (nouveau) => {
-        const liste = window.Sauvegarde.lire("mondes", []);
-        const index = liste.findIndex(x => x.id === nouveau.id);
-        if (index >= 0) liste[index] = nouveau; else liste.push(nouveau);
-        window.Sauvegarde.ecrire("mondes", liste);
-        remplirServeurs();
-        montrerEcran("ecran-serveurs");
-      }
-    });
-  }
-
-  // ============================================================
-  //  GALERIES  —  cartes avec portraits 3D générés en direct
-  // ============================================================
-  function carteAvecPortrait(item, sourcePortrait, estChoisi, surChoix) {
-    const carte = document.createElement("div");
-    carte.className = "carte" + (estChoisi ? " choisie" : "");
-    carte.tabIndex = 0;
-
-    const cadre = document.createElement("div");
-    cadre.className = "portrait";
-    // en attendant la photo : un joli dégradé aux couleurs de l'objet
-    cadre.style.background =
-      `linear-gradient(135deg, ${item.corps || "#3a3f58"}, ${item.accent || "#22263c"})`;
-    carte.appendChild(cadre);
-
-    window.Portraits.demander(item.id, sourcePortrait, (url) => {
-      if (!url) return;
-      const img = document.createElement("img");
-      img.src = url;
-      img.alt = item.nom;
-      cadre.style.background = "radial-gradient(circle at 50% 35%, #4a1219, #22060a)";
-      cadre.appendChild(img);
-    });
-
-    const nom = document.createElement("div");
-    nom.className = "nom"; nom.textContent = item.nom;
-    carte.appendChild(nom);
-    if (item.description) {
-      const desc = document.createElement("div");
-      desc.className = "desc"; desc.textContent = item.description;
-      carte.appendChild(desc);
-    }
-
-    const choisir = () => {
-      surChoix();
-      carte.parentElement.querySelectorAll(".carte").forEach(c => c.classList.remove("choisie"));
-      carte.classList.add("choisie");
+    $("#btn-monde-annuler").onclick = () => $("#form-monde").style.display = "none";
+    $("#btn-monde-creer").onclick = () => {
+      const nom = $("#monde-nom").value.trim() || "Mon monde";
+      const monde = {
+        id: "monde-" + Date.now(),
+        nom: nom,
+        couleurCiel: $("#monde-ciel").value,
+        couleurSol: $("#monde-sol").value
+      };
+      const liste = window.Sauvegarde.lire("mondes", []);
+      liste.push(monde);
+      window.Sauvegarde.ecrire("mondes", liste);
+      $("#form-monde").style.display = "none";
+      $("#monde-nom").value = "";
+      remplirServeurs();
     };
-    carte.onclick = choisir;
-    carte.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choisir(); } };
-    return carte;
   }
 
-  function remplirPersonnages() {
-    const grille = $("#grille-perso");
-    grille.innerHTML = "";
-    D.personnages.forEach(p => {
-      grille.appendChild(carteAvecPortrait(
-        p,
-        { fichier: p.fichier },
-        choixPersonnage.id === p.id,
-        () => {
-          choixPersonnage = p;
-          window.Sauvegarde.ecrire("personnage", p.id);
-        }
-      ));
+  // ============================================================
+  //  PERSONNAGE  —  panneaux de couleurs par partie du corps
+  // ============================================================
+  const PALETTE = [
+    "#F2C79B", "#C68B59", "#8D5524", "#FDF6E3",
+    "#EF6461", "#FFD166", "#7CB342", "#43BCCD",
+    "#3D5A80", "#845EC2", "#FF9EB6", "#222831"
+  ];
+
+  function construirePanneauPerso() {
+    const zone = $("#zone-couleurs");
+    zone.innerHTML = "";
+    const parties = [
+      { cle: "tete",   nom: "Tête" },
+      { cle: "torse",  nom: "Torse" },
+      { cle: "bras",   nom: "Bras" },
+      { cle: "jambes", nom: "Jambes" }
+    ];
+    parties.forEach(partie => {
+      const bloc = document.createElement("div");
+      bloc.className = "panneau-partie";
+      const titre = document.createElement("h3");
+      titre.textContent = partie.nom;
+      bloc.appendChild(titre);
+
+      const rangee = document.createElement("div");
+      rangee.className = "rangee-couleurs";
+      PALETTE.forEach(couleur => {
+        const puce = document.createElement("button");
+        puce.className = "puce";
+        puce.style.background = couleur;
+        if (couleursPerso[partie.cle] === couleur) puce.classList.add("choisie");
+        puce.onclick = () => {
+          couleursPerso[partie.cle] = couleur;
+          window.Perso.sauver(couleursPerso);
+          rangee.querySelectorAll(".puce").forEach(x => x.classList.remove("choisie"));
+          puce.classList.add("choisie");
+          majApercu();
+        };
+        rangee.appendChild(puce);
+      });
+      // couleur libre
+      const libre = document.createElement("input");
+      libre.type = "color";
+      libre.className = "puce-libre";
+      libre.value = couleursPerso[partie.cle];
+      libre.oninput = () => {
+        couleursPerso[partie.cle] = libre.value;
+        window.Perso.sauver(couleursPerso);
+        rangee.querySelectorAll(".puce").forEach(x => x.classList.remove("choisie"));
+        majApercu();
+      };
+      rangee.appendChild(libre);
+      bloc.appendChild(rangee);
+      zone.appendChild(bloc);
     });
   }
 
-  function remplirCompagnons() {
-    const grille = $("#grille-compagnons");
-    grille.innerHTML = "";
-    D.companions.forEach(comp => {
-      const source = comp.fichier
-        ? { fichier: comp.fichier }
-        : { builder: () => window.Perso.construireCompagnon(comp) };
-      grille.appendChild(carteAvecPortrait(
-        comp,
-        source,
-        choixCompagnon.id === comp.id,
-        () => {
-          choixCompagnon = comp;
-          window.Sauvegarde.ecrire("compagnon", comp.id);
-        }
-      ));
-    });
+  // petit rendu 3D tournant du bonhomme
+  function demarrerApercu() {
+    if (apercu) return;
+    const canvas = $("#canvas-perso");
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 20);
+    camera.position.set(0, 1.5, 4);
+    camera.lookAt(0, 0.95, 0);
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setSize(240, 300, false);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x554444, 1.1));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+    dir.position.set(2, 4, 3);
+    scene.add(dir);
+    const bonhomme = window.Perso.construire(couleursPerso);
+    scene.add(bonhomme);
+    apercu = { scene, camera, renderer, bonhomme, rafId: 0, horloge: new THREE.Clock() };
+    const boucle = () => {
+      if (!apercu) return;
+      apercu.rafId = requestAnimationFrame(boucle);
+      const t = apercu.horloge.getElapsedTime();
+      bonhomme.rotation.y = t * 0.9;
+      window.Perso.animer(bonhomme, t, 0.5);
+      renderer.render(scene, camera);
+    };
+    boucle();
   }
 
+  function majApercu() {
+    if (apercu) window.Perso.peindre(apercu.bonhomme, couleursPerso);
+  }
+
+  function arreterApercu() {
+    if (!apercu) return;
+    cancelAnimationFrame(apercu.rafId);
+    apercu.renderer.dispose();
+    apercu = null;
+  }
+
+  // ============================================================
+  //  BLOCS  —  liste + création depuis une image
+  // ============================================================
+  function remplirBlocs() {
+    const grille = $("#grille-blocs");
+    grille.innerHTML = "";
+
+    window.Blocs.tous().forEach(bloc => {
+      const carte = document.createElement("div");
+      carte.className = "carte carte-bloc";
+      const cadre = document.createElement("div");
+      cadre.className = "portrait";
+      cadre.innerHTML = `<img src="${window.Blocs.vignette(bloc)}" alt="">`;
+      carte.appendChild(cadre);
+      const nom = document.createElement("div");
+      nom.className = "nom"; nom.textContent = bloc.nom;
+      carte.appendChild(nom);
+      if (bloc.image) {
+        const actions = document.createElement("div");
+        actions.className = "actions-monde";
+        const btn = document.createElement("button");
+        btn.textContent = "🗑 Supprimer";
+        btn.onclick = () => {
+          if (confirm("Supprimer le bloc « " + bloc.nom + " » ? (les cubes déjà posés deviendront violets)")) {
+            window.Blocs.supprimer(bloc.id);
+            remplirBlocs();
+          }
+        };
+        actions.appendChild(btn);
+        carte.appendChild(actions);
+      } else {
+        const desc = document.createElement("div");
+        desc.className = "desc"; desc.textContent = "Bloc de base";
+        carte.appendChild(desc);
+      }
+      grille.appendChild(carte);
+    });
+
+    // création
+    $("#btn-bloc-creer").onclick = () => {
+      const fichier = $("#bloc-fichier").files[0];
+      if (!fichier) { $("#bloc-message").textContent = "Choisis d'abord une image !"; return; }
+      const nom = $("#bloc-nom").value.trim() || "Mon bloc";
+      $("#bloc-message").textContent = "Création en cours…";
+      window.Blocs.ajouterDepuisImage(nom, fichier, (bloc, erreur) => {
+        if (erreur) { $("#bloc-message").textContent = "⚠️ " + erreur; return; }
+        $("#bloc-message").textContent = "✅ « " + bloc.nom + " » ajouté !";
+        $("#bloc-nom").value = "";
+        $("#bloc-fichier").value = "";
+        remplirBlocs();
+      });
+    };
+  }
+
+  // ============================================================
+  //  RÉGLAGES
   // ============================================================
   function brancherReglages() {
-    const r = window.Reglages;
+    const r = window.Reglages.actuel;
+    const fov = $("#reglage-fov"), sens = $("#reglage-sensibilite"),
+          dist = $("#reglage-distance"),
+          ombres = $("#reglage-ombres"), invY = $("#reglage-invy");
+    fov.value = r.fov; sens.value = r.sensibilite; dist.value = r.distance;
+    ombres.checked = r.ombres; invY.checked = r.inverserY;
+    $("#valeur-fov").textContent = r.fov;
+    $("#valeur-sensibilite").textContent = r.sensibilite;
+    $("#valeur-distance").textContent = r.distance;
 
-    const fov = $("#reg-fov"), fovVal = $("#reg-fov-val");
-    fov.value = r.obtenir("fov"); fovVal.textContent = fov.value;
-    fov.oninput = () => { fovVal.textContent = fov.value; r.definir("fov", parseInt(fov.value)); };
-
-    const sens = $("#reg-sens"), sensVal = $("#reg-sens-val");
-    sens.value = r.obtenir("sensibilite"); sensVal.textContent = sens.value;
-    sens.oninput = () => { sensVal.textContent = sens.value; r.definir("sensibilite", parseInt(sens.value)); };
-
-    const vol = $("#reg-volume"), volVal = $("#reg-volume-val");
-    vol.value = r.obtenir("volume"); volVal.textContent = vol.value;
-    vol.oninput = () => { volVal.textContent = vol.value; r.definir("volume", parseInt(vol.value)); };
-
-    const ombres = $("#reg-ombres");
-    ombres.checked = r.obtenir("ombres");
-    ombres.onchange = () => r.definir("ombres", ombres.checked);
-
-    const inverser = $("#reg-inverser");
-    inverser.checked = r.obtenir("inverserY");
-    inverser.onchange = () => r.definir("inverserY", inverser.checked);
+    fov.oninput = () => { r.fov = +fov.value; $("#valeur-fov").textContent = fov.value; window.Reglages.sauver(); };
+    sens.oninput = () => { r.sensibilite = +sens.value; $("#valeur-sensibilite").textContent = sens.value; window.Reglages.sauver(); };
+    dist.oninput = () => { r.distance = +dist.value; $("#valeur-distance").textContent = dist.value; window.Reglages.sauver(); };
+    ombres.onchange = () => { r.ombres = ombres.checked; window.Reglages.sauver(); };
+    invY.onchange = () => { r.inverserY = invY.checked; window.Reglages.sauver(); };
   }
 
-  // ============================================================
-  //  TOUCHES  —  cases cliquables : clic puis pressez une touche
-  // ============================================================
-  let actionEnAttente = null;
+  // ---- touches remappables ----
+  let captureEnCours = null;
 
   function construireMenuTouches() {
-    const grille = $("#grille-touches");
-    grille.innerHTML = "";
-    const r = window.Reglages;
-
-    Object.keys(r.NOMS_ACTIONS).forEach(action => {
-      const boite = document.createElement("button");
-      boite.className = "touche-case";
-      boite.dataset.action = action;
-
+    const zone = $("#zone-touches");
+    zone.innerHTML = "";
+    const t = window.Reglages.actuel.touches;
+    Object.keys(window.Reglages.NOMS_ACTIONS).forEach(action => {
+      const ligne = document.createElement("div");
+      ligne.className = "ligne-touche";
       const nom = document.createElement("span");
-      nom.className = "action"; nom.textContent = r.NOMS_ACTIONS[action];
-      const kbd = document.createElement("kbd");
-      kbd.textContent = r.etiquetteTouche(r.actuel.touches[action]);
-
-      boite.appendChild(nom);
-      boite.appendChild(kbd);
-      boite.onclick = () => commencerCapture(action, boite);
-      grille.appendChild(boite);
-    });
-
-    // préréglages rapides
-    document.querySelectorAll("[data-preset]").forEach(b => {
-      b.onclick = () => {
-        const p = r.PRESETS[b.dataset.preset];
-        Object.keys(p).forEach(a => r.definirTouche(a, p[a]));
-        construireMenuTouches();
+      nom.textContent = window.Reglages.NOMS_ACTIONS[action];
+      const touche = document.createElement("button");
+      touche.className = "case-touche";
+      touche.textContent = window.Reglages.etiquetteTouche(t[action]);
+      touche.onclick = () => {
+        if (captureEnCours) captureEnCours.el.classList.remove("attente");
+        captureEnCours = { action, el: touche };
+        touche.classList.add("attente");
+        touche.textContent = "…";
       };
+      ligne.appendChild(nom);
+      ligne.appendChild(touche);
+      zone.appendChild(ligne);
     });
 
-    // capture globale de la prochaine touche
-    window.addEventListener("keydown", capturerTouche, true);
+    $("#btn-preset-zqsd").onclick = () => appliquerPreset("zqsd");
+    $("#btn-preset-fleches").onclick = () => appliquerPreset("fleches");
   }
 
-  function commencerCapture(action, boite) {
-    // on annule une éventuelle capture en cours
-    document.querySelectorAll(".touche-case.attente").forEach(b => {
-      b.classList.remove("attente");
-      b.querySelector("kbd").textContent =
-        window.Reglages.etiquetteTouche(window.Reglages.actuel.touches[b.dataset.action]);
-    });
-    actionEnAttente = action;
-    boite.classList.add("attente");
-    boite.querySelector("kbd").textContent = "…";
+  function appliquerPreset(nom) {
+    window.Reglages.actuel.touches = Object.assign({}, window.Reglages.PRESETS[nom]);
+    window.Reglages.sauver();
+    construireMenuTouches();
   }
 
-  function capturerTouche(e) {
-    if (!actionEnAttente) return;
+  window.addEventListener("keydown", (e) => {
+    if (!captureEnCours) return;
     e.preventDefault();
-    e.stopPropagation();
-    if (e.code !== "Escape") {
-      window.Reglages.definirTouche(actionEnAttente, e.code);
-    }
-    actionEnAttente = null;
-    // on redessine toutes les cases
-    const grille = $("#grille-touches");
-    if (grille) {
-      grille.querySelectorAll(".touche-case").forEach(b => {
-        b.classList.remove("attente");
-        b.querySelector("kbd").textContent =
-          window.Reglages.etiquetteTouche(window.Reglages.actuel.touches[b.dataset.action]);
-      });
-    }
-  }
+    window.Reglages.actuel.touches[captureEnCours.action] = e.code;
+    window.Reglages.sauver();
+    captureEnCours = null;
+    construireMenuTouches();
+  });
 
   // ============================================================
-  //  JEU
+  //  LANCEMENT DU JEU
   // ============================================================
-  function brancherJeu() {
-    $("#btn-quitter").onclick = quitterJeu;
-  }
-
   function lancerJeu(serveur) {
     montrerEcran("ecran-jeu");
-    $("#chargement").style.display = "flex";
-    setTimeout(() => {
-      window.Jeu.demarrer({
-        serveur: serveur,
-        personnage: choixPersonnage,
-        compagnon: choixCompagnon,
-        reglages: window.Reglages.actuel,
-        canvas: $("#canvas-jeu")
-      });
-      $("#chargement").style.display = "none";
-    }, 120);
-  }
-
-  function quitterJeu() {
-    window.Jeu.arreter();
-    montrerEcran("ecran-titre");
+    window.Jeu.demarrer({
+      serveur: serveur,
+      reglages: window.Reglages.actuel,
+      canvas: $("#canvas-jeu")
+    });
+    $("#btn-quitter").onclick = () => {
+      window.Jeu.arreter();
+      remplirServeurs();
+      montrerEcran("ecran-serveurs");
+    };
   }
 
   // ============================================================
-  //  FOND ANIMÉ  —  éclairs et étoiles qui scintillent
-  //  Chaque forme a un halo lumineux (brillance) et une ombre
-  //  portée, et sa luminosité pulse doucement.
+  //  FOND DU MENU  —  étoiles + cubes flottants
   // ============================================================
-  function fondAnime() {
+  function demarrerFond() {
     const canvas = $("#canvas-fond");
     const ctx = canvas.getContext("2d");
-    const couleurs = ["#FFD166", "#FFE9A8", "#FDF6E3", "#FFB347", "#43BCCD"];
-    let formes = [];
-
-    function dimensionner() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    dimensionner();
-    window.addEventListener("resize", dimensionner);
-
-    // beaucoup d'étoiles, quelques éclairs
-    for (let i = 0; i < 26; i++) {
-      const estEclair = i % 5 === 0;   // 1 forme sur 5 est un éclair
-      formes.push({
-        type: estEclair ? "eclair" : "etoile",
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        taille: estEclair ? (22 + Math.random() * 26) : (7 + Math.random() * 16),
-        vitesse: 6 + Math.random() * 14,
-        rot: (Math.random() - 0.5) * 0.6,
-        vrot: (Math.random() - 0.5) * 0.25,
-        couleur: couleurs[Math.floor(Math.random() * couleurs.length)],
-        alpha: 0.25 + Math.random() * 0.3,
-        phase: Math.random() * Math.PI * 2,      // décalage du scintillement
-        vScintille: 1.2 + Math.random() * 2.2    // vitesse du scintillement
+    const etoiles = [];
+    for (let i = 0; i < 90; i++) {
+      etoiles.push({
+        x: Math.random(), y: Math.random(),
+        taille: 0.6 + Math.random() * 1.8,
+        vitesse: 0.4 + Math.random() * 1.4,
+        phase: Math.random() * Math.PI * 2
       });
     }
-
-    // Étoile à 5 branches centrée sur (0,0)
-    function tracerEtoile(s) {
-      ctx.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const r = (i % 2 === 0) ? s : s * 0.45;
-        const a = (i * Math.PI) / 5 - Math.PI / 2;
-        const x = Math.cos(a) * r, y = Math.sin(a) * r;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-    }
-
-    // Éclair en zigzag centré sur (0,0)
-    function tracerEclair(s) {
-      const p = [
-        [0.5, 0], [0, 0.6], [0.4, 0.6],
-        [0.25, 1], [1, 0.35], [0.55, 0.35]
-      ];
-      ctx.beginPath();
-      p.forEach(([x, y], i) => {
-        const px = (x - 0.5) * s, py = (y - 0.5) * s * 1.5;
-        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    const cubes = [];
+    for (let i = 0; i < 8; i++) {
+      cubes.push({
+        x: Math.random(), y: 0.15 + Math.random() * 0.7,
+        taille: 18 + Math.random() * 30,
+        angle: Math.random() * Math.PI * 2,
+        vAngle: (Math.random() - 0.5) * 0.4,
+        vy: 4 + Math.random() * 7,
+        teinte: ["#FFD166", "#EF6461", "#43BCCD", "#7CB342"][i % 4]
       });
-      ctx.closePath();
     }
-
-    function dessinerForme(f, scintille) {
-      const tracer = () => (f.type === "etoile" ? tracerEtoile(f.taille) : tracerEclair(f.taille));
-
-      // 1) ombre portée : la même forme, sombre, légèrement décalée
-      ctx.save();
-      ctx.globalAlpha = f.alpha * scintille * 0.45;
-      ctx.translate(3, 5);
-      tracer();
-      ctx.fillStyle = "rgba(10, 2, 3, 0.9)";
-      ctx.fill();
-      ctx.restore();
-
-      // 2) la forme elle-même avec un halo lumineux (brillance)
-      ctx.globalAlpha = f.alpha * scintille;
-      ctx.shadowColor = f.couleur;
-      ctx.shadowBlur = f.taille * 1.4;
-      tracer();
-      ctx.fillStyle = f.couleur;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-
-    let dernier = performance.now();
     function boucle(t) {
-      const dt = Math.min((t - dernier) / 1000, 0.05);
-      dernier = t;
-      const temps = t / 1000;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      formes.forEach(f => {
-        f.y -= f.vitesse * dt;
-        f.rot += f.vrot * dt;
-        if (f.y + f.taille * 2 < 0) {
-          f.y = canvas.height + f.taille;
-          f.x = Math.random() * canvas.width;
-        }
-        // scintillement : la luminosité monte et descend doucement
-        const scintille = 0.55 + 0.45 * Math.sin(temps * f.vScintille + f.phase);
+      const l = canvas.width = canvas.clientWidth;
+      const h = canvas.height = canvas.clientHeight;
+      ctx.clearRect(0, 0, l, h);
+      const s = t / 1000;
+      etoiles.forEach(e => {
+        const alpha = 0.35 + 0.6 * Math.abs(Math.sin(s * e.vitesse + e.phase));
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#FDF6E3";
+        ctx.fillRect(e.x * l, e.y * h, e.taille, e.taille);
+      });
+      ctx.globalAlpha = 0.8;
+      cubes.forEach(c => {
+        const cx = c.x * l;
+        const cy = c.y * h + Math.sin(s * 0.6 + c.x * 9) * c.vy;
+        const a = c.angle + s * c.vAngle;
         ctx.save();
-        ctx.translate(f.x, f.y);
-        ctx.rotate(f.rot);
-        dessinerForme(f, scintille);
+        ctx.translate(cx, cy);
+        ctx.rotate(a);
+        ctx.fillStyle = c.teinte;
+        ctx.fillRect(-c.taille / 2, -c.taille / 2, c.taille, c.taille);
+        ctx.strokeStyle = "rgba(0,0,0,0.35)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-c.taille / 2, -c.taille / 2, c.taille, c.taille);
         ctx.restore();
       });
+      ctx.globalAlpha = 1;
       requestAnimationFrame(boucle);
     }
     requestAnimationFrame(boucle);
   }
 
-  // ------------------------------------------------------------
   window.addEventListener("DOMContentLoaded", init);
 })();
