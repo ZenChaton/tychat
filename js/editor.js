@@ -118,8 +118,10 @@ window.Editeur = {
 
     // boutons d'outils (objet sélectionné)
     document.getElementById("btn-ed-tourner").onclick = () => this._tournerSelection();
-    document.getElementById("btn-ed-plus").onclick = () => this._redimSelection(1.2);
-    document.getElementById("btn-ed-moins").onclick = () => this._redimSelection(1 / 1.2);
+    document.getElementById("btn-ed-plus").onclick = () => this._redimSelection(1.15);
+    document.getElementById("btn-ed-moins").onclick = () => this._redimSelection(1 / 1.15);
+    document.getElementById("btn-ed-monter").onclick = () => this._bougerHauteur(0.5);
+    document.getElementById("btn-ed-descendre").onclick = () => this._bougerHauteur(-0.5);
     document.getElementById("btn-ed-suppr").onclick = () => this._supprimerSelection();
     document.getElementById("btn-ed-fini").onclick = () => this._deselectionner();
     document.getElementById("btn-ed-stop").onclick = () => this._annulerPlacement();
@@ -221,7 +223,7 @@ window.Editeur = {
     const item = window.EditeurCatalogue.trouver(entree.item);
     if (!item) return;
     const support = new THREE.Group();
-    support.position.set(entree.x, 0, entree.z);
+    support.position.set(entree.x, entree.y || 0, entree.z);
     support.rotation.y = (entree.ry || 0) * Math.PI / 180;
     this.scene.add(support);
     this.meshes[index] = support;
@@ -325,7 +327,7 @@ window.Editeur = {
     if (index === -1) { this._deselectionner(); return; }
     this.selection = index;
     document.getElementById("editeur-outils").style.display = "flex";
-    this._majAide("Objet sélectionné : tourne-le, change sa taille ou supprime-le.");
+    this._majAide("Objet sélectionné : ⟳ tourner · ＋/－ taille · ⬆/⬇ hauteur · 🗑 supprimer");
   },
 
   _deselectionner() {
@@ -343,8 +345,16 @@ window.Editeur = {
   _redimSelection(facteur) {
     if (this.selection < 0) return;
     const e = this.objets[this.selection];
-    e.taille = Math.max(0.3, Math.min(40, (e.taille || e.tailleBase || 1) * facteur));
-    this.meshes[this.selection].scale.multiplyScalar(facteur);
+    const avant = e.taille || e.tailleBase || 1;
+    e.taille = Math.max(0.2, Math.min(50, avant * facteur));
+    this.meshes[this.selection].scale.multiplyScalar(e.taille / avant);
+  },
+
+  _bougerHauteur(pas) {
+    if (this.selection < 0) return;
+    const e = this.objets[this.selection];
+    e.y = Math.max(0, Math.min(60, (e.y || 0) + pas));
+    this.meshes[this.selection].position.y = e.y;
   },
 
   _supprimerSelection() {
@@ -359,7 +369,7 @@ window.Editeur = {
     const nom = document.getElementById("editeur-nom").value.trim() || "Mon monde";
     this.monde.nom = nom;
     this.monde.objets = this.objets.map(o => ({
-      item: o.item, x: o.x, z: o.z, ry: o.ry || 0,
+      item: o.item, x: o.x, z: o.z, y: o.y || 0, ry: o.ry || 0,
       taille: o.taille, tailleBase: o.tailleBase
     }));
     const monde = this.monde;

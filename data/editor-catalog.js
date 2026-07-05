@@ -18,6 +18,16 @@ window.EditeurCatalogue = {
 
   categories: [
     {
+      id: "bases", nom: "Bases", emoji: "🧱",
+      items: [
+        { id: "base_mur_bois",   nom: "Mur en bois",      fichier: "assets/models/Base_MurBois.glb",   taille: 3 },
+        { id: "base_mur_pierre", nom: "Mur en pierre",    fichier: "assets/models/Base_MurPierre.glb", taille: 3 },
+        { id: "base_sol_bois",   nom: "Sol en bois",      fichier: "assets/models/Base_SolBois.glb",   taille: 4, axe: "long" },
+        { id: "base_sol_pierre", nom: "Sol en pierre",    fichier: "assets/models/Base_SolPierre.glb", taille: 4, axe: "long" },
+        { id: "base_escalier",   nom: "Escalier de base", fichier: "assets/models/Base_Escalier.glb",  taille: 2.5 }
+      ]
+    },
+    {
       id: "sols", nom: "Routes & sols", emoji: "🛣️",
       items: [
         { id: "route_droite",   nom: "Route droite",    fichier: "assets/models/Kit_Route.glb", piece: "road_square",       taille: 4, axe: "long", collision: false },

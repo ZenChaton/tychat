@@ -521,3 +521,20 @@ input[type="range"] {
   min-height: 140px; font-size: 1.05rem; font-weight: 800;
   border-style: dashed;
 }
+
+
+/* viseur de la vue première personne */
+#viseur {
+  position: fixed; top: 50%; left: 50%;
+  width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+  pointer-events: none; z-index: 25;
+  display: none;
+}
+#viseur::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 2px; height: 2px; margin: -1px 0 0 -1px;
+  background: #FFD166; border-radius: 50%;
+}

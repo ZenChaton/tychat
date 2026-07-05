@@ -37,6 +37,9 @@ window.Jeu = {
 
   RAYON: 0.45, HAUTEUR: 3.0,
 
+  vueFP: false, meshTete: null,
+  _inputAv: 0, _inputCot: 0,
+
   reglages: null, personnage: null,
   _onKeyDown: null, _onKeyUp: null, _onMouseMove: null,
   _onMouseDown: null, _onMouseUp: null, _onResize: null, _onClickCanvas: null,
@@ -87,6 +90,8 @@ window.Jeu = {
     this.boutonTir = false; this.dernierTir = -10; this.attaque = null;
     this.mixerJoueur = null; this.clips = {}; this.actionCourante = null;
     this.animEtat = null; this.animVerrou = false;
+    this.vueFP = false; this.meshTete = null;
+    this._majViseur();
 
     // ---- monde ----
     this.monstres = [];
@@ -147,7 +152,8 @@ window.Jeu = {
         this.mixerJoueur = new THREE.AnimationMixer(modele);
         const cherche = (fin) => animations.find(c => c.name.endsWith(fin));
         ["Idle_Neutral", "Idle_Gun", "Idle_Sword", "Idle_Gun_Shoot",
-         "Walk", "Run", "Run_Shoot", "Sword_Slash", "Gun_Shoot",
+         "Walk", "Run", "Run_Shoot", "Run_Back", "Run_Left", "Run_Right",
+         "Sword_Slash", "Gun_Shoot",
          "Punch_Right", "Death", "HitRecieve", "Wave"].forEach(nom => {
           const c = cherche(nom);
           if (c) this.clips[nom] = c;
@@ -158,6 +164,11 @@ window.Jeu = {
         });
         this._basculerAnim("Idle_Neutral");
       }
+
+      // la tête : on la cache en vue première personne
+      modele.traverse(o => {
+        if (!this.meshTete && o.isMesh && /_head$/i.test(o.name)) this.meshTete = o;
+      });
 
       // main droite : on cherche l'os du poignet pour y accrocher l'arme
       let os = null;
@@ -398,6 +409,7 @@ window.Jeu = {
         this.avatar.visible = false;
       }
     }
+    this._majViseur();
   },
 
   _majConduite(dt) {
@@ -539,6 +551,7 @@ window.Jeu = {
       }
       if (e.code === this.reglages.touches.ramasser && !this.enVehicule) this._essayerRamasser();
       if (e.code === this.reglages.touches.vehicule) this._monterDescendre();
+      if (e.code === "KeyV") this._basculerVue();
     };
     this._onKeyUp = (e) => { this.touches[e.code] = false; };
 
@@ -548,7 +561,7 @@ window.Jeu = {
       this.yaw -= e.movementX * sens;
       const sensY = this.reglages.inverserY ? -1 : 1;
       this.pitch += e.movementY * sens * sensY;
-      this.pitch = Math.max(-0.4, Math.min(1.1, this.pitch));
+      this.pitch = Math.max(-1.25, Math.min(1.25, this.pitch));
     };
 
     this._onMouseDown = (e) => {
@@ -572,6 +585,17 @@ window.Jeu = {
     window.addEventListener("mouseup", this._onMouseUp);
     window.addEventListener("resize", this._onResize);
     canvas.addEventListener("click", this._onClickCanvas);
+  },
+
+  _basculerVue() {
+    this.vueFP = !this.vueFP;
+    if (this.meshTete) this.meshTete.visible = !this.vueFP;
+    this._majViseur();
+  },
+
+  _majViseur() {
+    const v = document.getElementById("viseur");
+    if (v) v.style.display = (this.vueFP && !this.enVehicule) ? "block" : "none";
   },
 
   _redimensionner() {
@@ -685,14 +709,17 @@ window.Jeu = {
     dir.addScaledVector(droite, cot);
 
     this._enMouvement = dir.lengthSq() > 0.0001;
+    this._inputAv = av; this._inputCot = cot;
     const vitesse = 8;
 
     if (this._enMouvement) {
       dir.normalize();
       this._bougerAxe("x", dir.x * vitesse * dt);
       this._bougerAxe("z", dir.z * vitesse * dt);
-      this.avatar.rotation.y = Math.atan2(dir.x, dir.z);
+      if (!this.vueFP) this.avatar.rotation.y = Math.atan2(dir.x, dir.z);
     }
+    // en vue première personne, le corps regarde toujours devant
+    if (this.vueFP) this.avatar.rotation.y = this.yaw;
 
     if (this.touches[m.sauter] && this.auSol) {
       this.vitesseY = 9.5;
@@ -723,7 +750,17 @@ window.Jeu = {
     let cle;
     if (!this.auSol) return;      // en l'air : on garde l'animation en cours
     if (this._enMouvement) {
-      cle = (enTir && this.clips["Run_Shoot"]) ? "Run_Shoot" : "Run";
+      if (enTir && this.clips["Run_Shoot"]) {
+        cle = "Run_Shoot";
+      } else if (this.vueFP && this._inputAv < 0 && this.clips["Run_Back"]) {
+        cle = "Run_Back";
+      } else if (this.vueFP && this._inputAv === 0 && this._inputCot > 0 && this.clips["Run_Right"]) {
+        cle = "Run_Right";
+      } else if (this.vueFP && this._inputAv === 0 && this._inputCot < 0 && this.clips["Run_Left"]) {
+        cle = "Run_Left";
+      } else {
+        cle = "Run";
+      }
     } else if (enTir && this.clips["Idle_Gun_Shoot"]) {
       cle = "Idle_Gun_Shoot";
     } else if (arme && (arme.type === "tir" || arme.type === "grenade")) {
@@ -920,9 +957,10 @@ window.Jeu = {
     objets.forEach(o => {
       const item = window.EditeurCatalogue.trouver(o.item);
       if (!item) return;
+      const oy = o.y || 0;
       if (item.type === "arme") {
-        this._blocSolide(o.x, 0.4, o.z, 1.6, 0.8, 1.6, 0x5A6472, this.reglages.ombres);
-        this._poserObjetSol(item.arme, o.x, 1.2, o.z);
+        this._blocSolide(o.x, oy + 0.4, o.z, 1.6, 0.8, 1.6, 0x5A6472, this.reglages.ombres);
+        this._poserObjetSol(item.arme, o.x, oy + 1.2, o.z);
       } else if (item.type === "ennemi") {
         this._creerMonstre(o.x, o.z);
       } else if (item.type === "soin") {
@@ -933,7 +971,7 @@ window.Jeu = {
       } else {
         this._placerDecor({
           fichier: item.fichier, piece: item.piece,
-          x: o.x, z: o.z, ry: o.ry || 0,
+          x: o.x, z: o.z, y: oy, ry: o.ry || 0,
           taille: o.taille || item.taille,
           axe: item.axe, collision: item.collision
         });
@@ -1075,15 +1113,32 @@ window.Jeu = {
   //  CAMÉRA & COMPAGNON
   // ============================================================
   _placerCamera() {
+    // ----- vue première personne (sauf en véhicule) -----
+    if (this.vueFP && !this.enVehicule) {
+      const p = this.pitch;
+      const oeil = this.avatar.position.clone();
+      oeil.y += 2.6;
+      oeil.x += Math.sin(this.yaw) * 0.25;
+      oeil.z += Math.cos(this.yaw) * 0.25;
+      const regard = new THREE.Vector3(
+        Math.sin(this.yaw) * Math.cos(p),
+        -Math.sin(p),
+        Math.cos(this.yaw) * Math.cos(p)
+      );
+      this.camera.position.copy(oeil);
+      this.camera.lookAt(oeil.clone().add(regard));
+      return;
+    }
     let yaw = this.yaw, dist = 7, hauteur = 3, viseY = 1.8;
+    const pTP = Math.max(-0.4, Math.min(1.1, this.pitch));
     if (this.enVehicule) {
       yaw = this.enVehicule.groupe.rotation.y;
       dist = 11; hauteur = 4.5; viseY = 1.5;
     }
-    const distH = dist * Math.cos(this.pitch);
+    const distH = dist * Math.cos(pTP);
     const cx = this.avatar.position.x - Math.sin(yaw) * distH;
     const cz = this.avatar.position.z - Math.cos(yaw) * distH;
-    const cy = this.avatar.position.y + hauteur + Math.sin(this.pitch) * dist;
+    const cy = this.avatar.position.y + hauteur + Math.sin(pTP) * dist;
     this.camera.position.set(cx, cy, cz);
     this.camera.lookAt(
       this.avatar.position.x,
