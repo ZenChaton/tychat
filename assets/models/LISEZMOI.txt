@@ -1,3 +1,0 @@
-Placez ici vos modeles 3D gratuits au format .glb
-(poly.pizza, quaternius.com, kenney.nl - licence CC0)
-puis declarez-les dans data/companions.js (mode d emploi dedans).
